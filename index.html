@@ -32,7 +32,7 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-.app { max-width: 480px; margin: 0 auto; padding-bottom: 80px; }
+.app { max-width: 480px; margin: 0 auto; padding-bottom: 160px; }
 
 /* ── HEADER ── */
 .hdr { background: var(--bg); padding: 16px 24px 14px; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--b1); }
@@ -107,11 +107,7 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 .last-perf { font-size: 11px; color: var(--t2); margin-top: 10px; padding: 8px 12px; background: var(--bg); border-radius: 6px; letter-spacing: .01em; }
 .last-perf .hi { color: var(--accent); font-weight: 600; }
 
-/* ── SAVE ── */
-.save-wrap { position: fixed; bottom: 62px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; padding: 10px 24px 8px; background: linear-gradient(to top, var(--bg) 60%, transparent); z-index: 15; pointer-events: none; }
-.save-btn { pointer-events: all; width: 100%; padding: 16px; border-radius: 14px; background: var(--t1); border: none; color: #0D0D0D; font-family: var(--f); font-size: 15px; font-weight: 700; cursor: pointer; letter-spacing: .02em; transition: all .15s; }
-.save-btn:hover { background: #e0e0e0; }
-.save-btn:active { transform: scale(.98); }
+/* ── SAVE — moved to SAVE BUTTON section below ── */
 
 /* ── NUTRIÇÃO ── */
 .nutr-nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px 0; }
@@ -255,6 +251,33 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 .toast.show  { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast.ok    { border-color: rgba(0,255,136,.35); color: var(--accent); }
 
+/* ── TIMER BAR (header) ── */
+.hdr-timer { display: flex; align-items: center; gap: 14px; padding-top: 12px; border-top: 1px solid var(--b1); margin-top: 12px; }
+.ht-block { display: flex; flex-direction: column; align-items: center; min-width: 70px; }
+.ht-time { font-size: 34px; font-weight: 800; letter-spacing: -.04em; color: var(--t1); font-feature-settings: 'tnum' 1; line-height: 1; }
+.ht-time.rest-time { font-size: 28px; color: var(--t2); transition: color .3s; }
+.ht-time.rest-time.alert { color: var(--accent); }
+.ht-hint { font-size: 9px; color: var(--t3); letter-spacing: .06em; text-transform: uppercase; margin-top: 3px; }
+.ht-sep { width: 1px; height: 36px; background: var(--b2); flex-shrink: 0; }
+.ht-spacer { flex: 1; }
+
+/* ── WEEK CHIP ── */
+.week-chip { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--a-dim); border: 1px solid rgba(0,255,136,.2); padding: 4px 10px; border-radius: 6px; }
+
+/* ── SAVE BUTTON ── */
+.save-wrap { position: fixed; bottom: calc(58px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; padding: 10px 24px 8px; background: var(--bg); border-top: 1px solid var(--b1); z-index: 15; pointer-events: none; }
+.save-btn { pointer-events: all; width: 100%; padding: 16px; border-radius: 14px; background: var(--t1); border: none; color: #0D0D0D; font-family: var(--f); font-size: 15px; font-weight: 700; cursor: pointer; letter-spacing: .02em; transition: all .15s; }
+.save-btn:hover { background: #e0e0e0; }
+.save-btn:active { transform: scale(.98); }
+
+/* ── RESUME MODAL ── */
+.resume-modal { position: fixed; inset: 0; background: rgba(0,0,0,.82); z-index: 60; display: flex; align-items: flex-end; justify-content: center; }
+.resume-panel { background: var(--s1); border-radius: 16px 16px 0 0; padding: 28px 24px calc(32px + env(safe-area-inset-bottom)); width: 100%; max-width: 480px; border-top: 1px solid var(--b1); }
+.resume-title { font-size: 17px; font-weight: 700; margin-bottom: 8px; letter-spacing: -.01em; }
+.resume-msg { font-size: 13px; color: var(--t2); margin-bottom: 22px; line-height: 1.5; }
+.resume-btn-p { width: 100%; padding: 15px; border-radius: 10px; background: var(--t1); border: none; color: #0D0D0D; font-family: var(--f); font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 8px; letter-spacing: .02em; }
+.resume-btn-s { width: 100%; padding: 13px; border-radius: 10px; background: transparent; border: 1px solid var(--b1); color: var(--t2); font-family: var(--f); font-size: 14px; cursor: pointer; }
+
 /* ── SPLASH ── */
 #splash {
   position: fixed; inset: 0;
@@ -336,26 +359,33 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
       </div>
     </div>
     <div class="hdr-right">
-      <div class="streak-chip" id="streakChip">🔥 <span id="streakVal">0</span></div>
+      <div class="week-chip" id="weekChip" style="display:none"><span id="weekVal">0</span> essa semana</div>
       <button class="gear-btn" onclick="openSettings()" title="Configurações">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
     </div>
+  </div>
+  <!-- TIMER BAR: visível apenas na aba Treino -->
+  <div class="hdr-timer" id="hdrTimer" style="display:none">
+    <div class="ht-block">
+      <div class="ht-time" id="timerDisplay">00:00</div>
+      <div class="ht-hint">treino</div>
+    </div>
+    <div class="ht-sep"></div>
+    <div class="ht-block">
+      <div class="ht-time rest-time" id="restDisplay">00:00</div>
+      <div class="ht-hint">descanso</div>
+    </div>
+    <div class="ht-spacer"></div>
+    <button class="timer-play-btn" id="timerBtn" onclick="toggleTimer()">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+    </button>
   </div>
 </div>
 
 <!-- VIEW: TREINO -->
 <div id="view-registrar" class="view active">
   <div class="sec-head"><div class="sec-title">Treino</div></div>
-  <div class="timer-wrap">
-    <div class="timer-main">
-      <div class="timer-big" id="timerDisplay">00:00</div>
-      <div class="timer-hint" id="timerLabel">pronto</div>
-    </div>
-    <button class="timer-play-btn" id="timerBtn" onclick="toggleTimer()">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-    </button>
-  </div>
   <div class="seg-wrap"><div class="seg-ctrl" id="typeScroll"></div></div>
   <div class="ex-wrap" id="exContainer"></div>
 </div>
@@ -488,6 +518,16 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 </div>
 <div class="toast" id="toast"></div>
 
+<!-- RESUME MODAL -->
+<div class="resume-modal" id="resumeModal" style="display:none">
+  <div class="resume-panel">
+    <div class="resume-title">Retomar treino?</div>
+    <div class="resume-msg" id="resumeMsg"></div>
+    <button class="resume-btn-p" onclick="resumeDraft()">Retomar</button>
+    <button class="resume-btn-s" onclick="discardDraft()">Novo treino</button>
+  </div>
+</div>
+
 <script>
 // ── DATA ──────────────────────────────────────────────
 const DAYS = [
@@ -587,6 +627,11 @@ let timerElapsed   = 0;
 let timerRunning   = false;
 let timerResumedAt = null;
 let timerIv        = null;
+let restElapsed    = 0;
+let restRunning    = false;
+let restResumedAt  = null;
+let restIv         = null;
+let restAlerted    = false;
 let nutrDate    = todayISO();
 let evoPeriod   = 30;
 let selectedCalDate = null;
@@ -618,9 +663,10 @@ function getStreak() {
   return streak;
 }
 function updateHeader() {
-  const s=getStreak();
-  document.getElementById('streakVal').textContent=s;
-  document.getElementById('streakChip').style.display=s>0?'':'none';
+  var cutoff=new Date(); cutoff.setDate(cutoff.getDate()-7);
+  var count7=workouts.filter(function(w){return parseDate(w.date)>=cutoff;}).length;
+  document.getElementById('weekVal').textContent=count7;
+  document.getElementById('weekChip').style.display=count7>0?'':'none';
 }
 function renderHeaderDate() {
   const d=new Date();
@@ -635,33 +681,75 @@ var T_PAUSE = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColo
 
 function toggleTimer() {
   var btn = document.getElementById('timerBtn');
-  var lbl = document.getElementById('timerLabel');
   if(timerRunning) {
     timerElapsed += Date.now() - timerResumedAt;
     timerRunning = false;
     clearInterval(timerIv); timerIv = null;
     if(btn){ btn.classList.remove('running'); btn.innerHTML = T_PLAY; }
-    if(lbl) lbl.textContent = 'pausado';
   } else {
     timerResumedAt = Date.now();
     timerRunning = true;
     timerIv = setInterval(tickTimer, 1000);
     tickTimer();
     if(btn){ btn.classList.add('running'); btn.innerHTML = T_PAUSE; }
-    if(lbl) lbl.textContent = 'em andamento';
+    showTimerBar();
   }
 }
 function startTimer() {
-  // reset to idle state (called on load & after save)
   clearInterval(timerIv); timerIv = null;
   timerElapsed = 0; timerRunning = false; timerResumedAt = null;
   var el = document.getElementById('timerDisplay'); if(el) el.textContent = '00:00';
-  var lbl = document.getElementById('timerLabel'); if(lbl) lbl.textContent = 'pronto';
   var btn = document.getElementById('timerBtn');
   if(btn){ btn.classList.remove('running'); btn.innerHTML = T_PLAY; }
+  stopRestTimer();
 }
 function stopTimer() { clearInterval(timerIv); timerIv = null; }
 function resetTimer() { startTimer(); }
+function showTimerBar() {
+  document.getElementById('hdrTimer').style.display='flex';
+}
+
+// ── REST TIMER ─────────────────────────────────────────
+function startRestTimer() {
+  clearInterval(restIv); restIv = null;
+  restElapsed = 0; restAlerted = false;
+  restRunning = true; restResumedAt = Date.now();
+  var el = document.getElementById('restDisplay');
+  if(el){ el.textContent='00:00'; el.classList.remove('alert'); }
+  restIv = setInterval(tickRestTimer, 1000);
+}
+function stopRestTimer() {
+  clearInterval(restIv); restIv = null; restRunning = false;
+  restElapsed = 0; restAlerted = false;
+  var el = document.getElementById('restDisplay');
+  if(el){ el.textContent='00:00'; el.classList.remove('alert'); }
+}
+function tickRestTimer() {
+  if(!restRunning) return;
+  var total = restElapsed + (Date.now() - restResumedAt);
+  var s = Math.floor(total / 1000);
+  var el = document.getElementById('restDisplay');
+  if(el) el.textContent = String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+  if(s >= 120 && !restAlerted) {
+    restAlerted = true;
+    if(el) el.classList.add('alert');
+    alertRest();
+  }
+}
+function alertRest() {
+  if(navigator.vibrate) navigator.vibrate([300,100,300]);
+  try {
+    var ctx = new (window.AudioContext||window.webkitAudioContext)();
+    [0, 0.35].forEach(function(when) {
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = 880;
+      g.gain.setValueAtTime(0.4, ctx.currentTime+when);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+when+0.3);
+      o.start(ctx.currentTime+when); o.stop(ctx.currentTime+when+0.3);
+    });
+  } catch(e) {}
+}
 function tickTimer() {
   var el = document.getElementById('timerDisplay');
   if(!el || !timerRunning) return;
@@ -681,10 +769,15 @@ function switchView(v,btn) {
   document.getElementById('view-'+v).classList.add('active');
   btn.classList.add('active');
   document.getElementById('saveWrap').style.display=v==='registrar'?'block':'none';
+  var tb=document.getElementById('hdrTimer');
   if(v==='registrar') {
+    if(timerRunning||timerElapsed>0) tb.style.display='flex';
     if(timerRunning && !timerIv){ timerIv=setInterval(tickTimer,1000); tickTimer(); }
+    if(restRunning && !restIv){ restIv=setInterval(tickRestTimer,1000); }
   } else {
+    tb.style.display='none';
     clearInterval(timerIv); timerIv=null;
+    clearInterval(restIv); restIv=null;
   }
   if(v==='historico') renderHistory();
   if(v==='evolucao')  renderEvo();
@@ -773,9 +866,15 @@ function onSetIn(ei,si) {
   var kg=document.getElementById('kg-'+ei+'-'+si);
   var rp=document.getElementById('rp-'+ei+'-'+si);
   var sn=document.getElementById('sn-'+ei+'-'+si);
-  if(sn) sn.classList.toggle('done',!!(kg&&kg.value&&rp&&rp.value));
+  var both=!!(kg&&kg.value&&rp&&rp.value);
+  if(sn) sn.classList.toggle('done',both);
   if(kg) kg.classList.toggle('has-v',!!kg.value);
   if(rp) rp.classList.toggle('has-v',!!rp.value);
+  if(both) {
+    if(!timerRunning && timerElapsed===0) { toggleTimer(); }
+    startRestTimer();
+    saveDraft();
+  }
 }
 
 function addSet(ei,rr) {
@@ -820,8 +919,10 @@ function saveWorkout() {
   var kcal=calcCalories(selectedDay.key,durMin);
   workouts.push({id:Date.now(),date:todayISO(),dayKey:selectedDay.key,dayName:selectedDay.name,exercises:exercises,duration:durSec,calories:kcal});
   localStorage.setItem('mb_workouts',JSON.stringify(workouts));
+  localStorage.removeItem('mb_draft');
   showToast(selectedDay.name+' - '+durMin+'min - '+kcal+' kcal',true);
   updateHeader(); resetTimer(); renderExercises();
+  document.getElementById('hdrTimer').style.display='none';
 }
 
 // ── NUTRITION ─────────────────────────────────────────
@@ -1335,6 +1436,75 @@ function renderWeightChart() {
   });
 }
 
+// ── DRAFT SAVE / RESTORE ──────────────────────────────
+function saveDraft() {
+  var sets={};
+  selectedDay.exercises.forEach(function(ex,i){
+    var container=document.getElementById('sets-'+i);
+    if(!container) return;
+    var rows=container.querySelectorAll('.set-row');
+    var s=[];
+    rows.forEach(function(_,j){
+      var kg=document.getElementById('kg-'+i+'-'+j);
+      var rp=document.getElementById('rp-'+i+'-'+j);
+      s.push({kg:kg?kg.value:'',reps:rp?rp.value:''});
+    });
+    sets[i]=s;
+  });
+  localStorage.setItem('mb_draft',JSON.stringify({dayKey:selectedDay.key,timestamp:Date.now(),sets:sets}));
+}
+
+function checkDraft() {
+  var raw=localStorage.getItem('mb_draft');
+  if(!raw) return;
+  try {
+    var draft=JSON.parse(raw);
+    var age=Date.now()-draft.timestamp;
+    if(age>30*60*1000){localStorage.removeItem('mb_draft');return;}
+    var minAgo=Math.round(age/60000);
+    var dayObj=DAYS.find(function(d){return d.key===draft.dayKey;})||{name:draft.dayKey};
+    document.getElementById('resumeMsg').textContent=
+      'Treino '+dayObj.name+' iniciado há '+(minAgo<1?'menos de 1 min':minAgo+' min')+'.';
+    document.getElementById('resumeModal').style.display='flex';
+    window._pendingDraft=draft;
+  } catch(e){localStorage.removeItem('mb_draft');}
+}
+
+function resumeDraft() {
+  var draft=window._pendingDraft;
+  document.getElementById('resumeModal').style.display='none';
+  if(!draft) return;
+  selectType(draft.dayKey);
+  setTimeout(function(){
+    Object.keys(draft.sets).forEach(function(ei){
+      var sets=draft.sets[ei];
+      var exIdx=parseInt(ei);
+      var container=document.getElementById('sets-'+ei);
+      if(!container) return;
+      var existing=container.querySelectorAll('.set-row').length;
+      var rr=selectedDay.exercises[exIdx]?selectedDay.exercises[exIdx].repsRange:'';
+      for(var j=existing;j<sets.length;j++) addSet(exIdx,rr);
+      sets.forEach(function(s,j){
+        var kg=document.getElementById('kg-'+ei+'-'+j);
+        var rp=document.getElementById('rp-'+ei+'-'+j);
+        var sn=document.getElementById('sn-'+ei+'-'+j);
+        if(kg&&s.kg){kg.value=s.kg;kg.classList.add('has-v');}
+        if(rp&&s.reps){rp.value=s.reps;rp.classList.add('has-v');}
+        if(sn&&s.kg&&s.reps) sn.classList.add('done');
+      });
+    });
+    showTimerBar();
+  },50);
+  localStorage.removeItem('mb_draft');
+  window._pendingDraft=null;
+}
+
+function discardDraft() {
+  document.getElementById('resumeModal').style.display='none';
+  localStorage.removeItem('mb_draft');
+  window._pendingDraft=null;
+}
+
 // ── TOAST ─────────────────────────────────────────────
 function showToast(msg,ok) {
   var t=document.getElementById('toast');
@@ -1348,6 +1518,7 @@ updateHeader();
 renderTypeChips();
 renderExercises();
 startTimer();
+checkDraft();
 
 // ── SPLASH ────────────────────────────────────────────
 (function() {
