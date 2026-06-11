@@ -32,7 +32,7 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size: 14px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-.app { max-width: 480px; margin: 0 auto; padding-bottom: 160px; }
+.app { max-width: 480px; margin: 0 auto; padding-bottom: 90px; }
 
 /* ── HEADER ── */
 .hdr { background: var(--bg); padding: 16px 24px 14px; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--b1); }
@@ -265,8 +265,8 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 .week-chip { font-size: 12px; font-weight: 600; color: var(--accent); background: var(--a-dim); border: 1px solid rgba(0,255,136,.2); padding: 4px 10px; border-radius: 6px; }
 
 /* ── SAVE BUTTON ── */
-.save-wrap { position: fixed; bottom: calc(58px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; padding: 10px 24px 8px; background: var(--bg); border-top: 1px solid var(--b1); z-index: 15; pointer-events: none; }
-.save-btn { pointer-events: all; width: 100%; padding: 16px; border-radius: 14px; background: var(--t1); border: none; color: #0D0D0D; font-family: var(--f); font-size: 15px; font-weight: 700; cursor: pointer; letter-spacing: .02em; transition: all .15s; }
+.save-wrap { padding: 24px 24px 8px; }
+.save-btn { width: 100%; padding: 16px; border-radius: 14px; background: var(--t1); border: none; color: #0D0D0D; font-family: var(--f); font-size: 15px; font-weight: 700; cursor: pointer; letter-spacing: .02em; transition: all .15s; }
 .save-btn:hover { background: #e0e0e0; }
 .save-btn:active { transform: scale(.98); }
 
@@ -388,6 +388,9 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
   <div class="sec-head"><div class="sec-title">Treino</div></div>
   <div class="seg-wrap"><div class="seg-ctrl" id="typeScroll"></div></div>
   <div class="ex-wrap" id="exContainer"></div>
+  <div class="save-wrap">
+    <button class="save-btn" onclick="saveWorkout()">Finalizar treino</button>
+  </div>
 </div>
 
 <!-- VIEW: NUTRIÇÃO -->
@@ -482,11 +485,6 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 </div>
 
 </div><!-- /.app -->
-
-<!-- SAVE -->
-<div class="save-wrap" id="saveWrap">
-  <button class="save-btn" onclick="saveWorkout()">Finalizar treino</button>
-</div>
 
 <!-- BOTTOM NAV -->
 <nav class="bnav">
@@ -633,6 +631,8 @@ let restRunning    = false;
 let restResumedAt  = null;
 let restIv         = null;
 let restAlerted    = false;
+let lastSetTime    = null;
+const AUTO_FINISH_MS = 60*60*1000; // 1 hora
 let nutrDate    = todayISO();
 let evoPeriod   = 30;
 let selectedCalDate = null;
@@ -769,7 +769,6 @@ function switchView(v,btn) {
   document.querySelectorAll('.ni').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
   btn.classList.add('active');
-  document.getElementById('saveWrap').style.display=v==='registrar'?'block':'none';
   var tb=document.getElementById('hdrTimer');
   if(v==='registrar') {
     if(timerRunning||timerElapsed>0) tb.style.display='flex';
@@ -874,6 +873,7 @@ function onSetIn(ei,si) {
   if(both) {
     if(!timerRunning && timerElapsed===0) { toggleTimer(); }
     startRestTimer();
+    lastSetTime=Date.now();
     saveDraft();
   }
 }
@@ -901,7 +901,7 @@ function reIdx(ei) {
 }
 
 // ── SAVE ──────────────────────────────────────────────
-function saveWorkout() {
+function saveWorkout(auto) {
   var exercises=[];
   selectedDay.exercises.forEach(function(ex,i){
     var rows=document.getElementById('sets-'+i).querySelectorAll('.set-row');
@@ -914,17 +914,29 @@ function saveWorkout() {
     });
     if(sets.length>0) exercises.push({name:ex.name,sets:sets});
   });
-  if(!exercises.length){showToast('Registre ao menos uma serie.',false);return;}
+  if(!exercises.length){
+    if(!auto) showToast('Registre ao menos uma serie.',false);
+    return;
+  }
   var durSec=getElapsedSecs();
   var durMin=Math.max(1,Math.floor(durSec/60));
   var kcal=calcCalories(selectedDay.key,durMin);
   workouts.push({id:Date.now(),date:todayISO(),dayKey:selectedDay.key,dayName:selectedDay.name,exercises:exercises,duration:durSec,calories:kcal});
   localStorage.setItem('mb_workouts',JSON.stringify(workouts));
   localStorage.removeItem('mb_draft');
-  showToast(selectedDay.name+' - '+durMin+'min - '+kcal+' kcal',true);
+  lastSetTime=null;
+  showToast((auto?'Treino finalizado automaticamente: ':'')+selectedDay.name+' - '+durMin+'min - '+kcal+' kcal',true);
   updateHeader(); resetTimer(); renderExercises();
   document.getElementById('hdrTimer').style.display='none';
 }
+
+// ── AUTO-FINISH (1h sem novo registro) ────────────────
+function checkAutoFinish() {
+  if(!lastSetTime) return;
+  if(Date.now()-lastSetTime>AUTO_FINISH_MS) saveWorkout(true);
+}
+setInterval(checkAutoFinish,60*1000);
+document.addEventListener('visibilitychange',function(){ if(!document.hidden) checkAutoFinish(); });
 
 // ── NUTRITION ─────────────────────────────────────────
 function getNutrDay(iso)       { return JSON.parse(localStorage.getItem('mb_nutr_'+iso)||'{}'); }
@@ -1452,7 +1464,7 @@ function saveDraft() {
     });
     sets[i]=s;
   });
-  localStorage.setItem('mb_draft',JSON.stringify({dayKey:selectedDay.key,timestamp:Date.now(),sets:sets}));
+  localStorage.setItem('mb_draft',JSON.stringify({dayKey:selectedDay.key,timestamp:Date.now(),lastSetTime:lastSetTime,sets:sets}));
 }
 
 function checkDraft() {
@@ -1496,6 +1508,7 @@ function resumeDraft() {
     });
     showTimerBar();
   },50);
+  lastSetTime=draft.lastSetTime||draft.timestamp;
   localStorage.removeItem('mb_draft');
   window._pendingDraft=null;
 }
@@ -1512,6 +1525,17 @@ function showToast(msg,ok) {
   t.textContent=msg; t.className='toast'+(ok?' ok':'');
   t.classList.add('show'); setTimeout(function(){t.classList.remove('show');},2600);
 }
+
+// ── ORIENTATION LOCK ──────────────────────────────────
+function lockOrientation() {
+  try {
+    if(screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('portrait').catch(function(){});
+    }
+  } catch(e) {}
+}
+lockOrientation();
+document.addEventListener('visibilitychange',function(){ if(!document.hidden) lockOrientation(); });
 
 // ── INIT ──────────────────────────────────────────────
 renderHeaderDate();
