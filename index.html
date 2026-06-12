@@ -384,7 +384,7 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 </div>
 
 <!-- VIEW: TREINO -->
-<div id="view-registrar" class="view active">
+<div id="view-registrar" class="view">
   <div class="sec-head"><div class="sec-title">Treino</div></div>
   <div class="seg-wrap"><div class="seg-ctrl" id="typeScroll"></div></div>
   <div class="ex-wrap" id="exContainer"></div>
@@ -406,7 +406,7 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 </div>
 
 <!-- VIEW: HISTÓRICO -->
-<div id="view-historico" class="view">
+<div id="view-historico" class="view active">
   <div class="sec-head"><div class="sec-title">Histórico</div></div>
   <div class="hist-stats">
     <div class="stat-block"><div class="stat-val" id="stMoCount">0</div><div class="stat-lbl">Treinos este mês</div></div>
@@ -488,17 +488,17 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 
 <!-- BOTTOM NAV -->
 <nav class="bnav">
-  <button class="ni active" onclick="switchView('registrar',this)">
+  <button class="ni active" onclick="switchView('historico',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    <span class="ni-lbl">Histórico</span>
+  </button>
+  <button class="ni" onclick="switchView('registrar',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5h11M6.5 17.5h11M4 12h16"/><circle cx="4" cy="6.5" r="1.5"/><circle cx="20" cy="6.5" r="1.5"/><circle cx="4" cy="17.5" r="1.5"/><circle cx="20" cy="17.5" r="1.5"/></svg>
     <span class="ni-lbl">Treino</span>
   </button>
   <button class="ni" onclick="switchView('nutricao',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 6v6l4 2"/></svg>
     <span class="ni-lbl">Nutrição</span>
-  </button>
-  <button class="ni" onclick="switchView('historico',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-    <span class="ni-lbl">Histórico</span>
   </button>
   <button class="ni" onclick="switchView('evolucao',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
@@ -632,6 +632,7 @@ let restResumedAt  = null;
 let restIv         = null;
 let restAlerted    = false;
 let lastSetTime    = null;
+let typeData       = {}; // sets em andamento por tipo de treino (push1, pull1, legs, upper, push2)
 const AUTO_FINISH_MS = 60*60*1000; // 1 hora
 let nutrDate    = todayISO();
 let evoPeriod   = 30;
@@ -815,9 +816,50 @@ function renderTypeChips() {
   ).join('');
 }
 function selectType(key) {
+  typeData[selectedDay.key]=captureSets(selectedDay);
   selectedDay=DAYS.find(d=>d.key===key);
   renderTypeChips();
   renderExercises();
+  applySets(selectedDay,typeData[selectedDay.key]);
+}
+
+// ── Captura/restauração de séries em andamento por tipo de treino ─
+function captureSets(day) {
+  var sets={};
+  day.exercises.forEach(function(ex,i){
+    var container=document.getElementById('sets-'+i);
+    if(!container) return;
+    var rows=container.querySelectorAll('.set-row');
+    var s=[];
+    rows.forEach(function(_,j){
+      var kg=document.getElementById('kg-'+i+'-'+j);
+      var rp=document.getElementById('rp-'+i+'-'+j);
+      s.push({kg:kg?kg.value:'',reps:rp?rp.value:''});
+    });
+    sets[i]=s;
+  });
+  return sets;
+}
+
+function applySets(day,sets) {
+  if(!sets) return;
+  Object.keys(sets).forEach(function(ei){
+    var rows=sets[ei];
+    var exIdx=parseInt(ei);
+    var container=document.getElementById('sets-'+ei);
+    if(!container) return;
+    var existing=container.querySelectorAll('.set-row').length;
+    var rr=day.exercises[exIdx]?day.exercises[exIdx].repsRange:'';
+    for(var j=existing;j<rows.length;j++) addSet(exIdx,rr);
+    rows.forEach(function(s,j){
+      var kg=document.getElementById('kg-'+ei+'-'+j);
+      var rp=document.getElementById('rp-'+ei+'-'+j);
+      var sn=document.getElementById('sn-'+ei+'-'+j);
+      if(kg&&s.kg){kg.value=s.kg;kg.classList.add('has-v');}
+      if(rp&&s.reps){rp.value=s.reps;rp.classList.add('has-v');}
+      if(sn&&s.kg&&s.reps) sn.classList.add('done');
+    });
+  });
 }
 
 // ── EXERCISES ─────────────────────────────────────────
@@ -902,17 +944,19 @@ function reIdx(ei) {
 
 // ── SAVE ──────────────────────────────────────────────
 function saveWorkout(auto) {
+  typeData[selectedDay.key]=captureSets(selectedDay);
   var exercises=[];
-  selectedDay.exercises.forEach(function(ex,i){
-    var rows=document.getElementById('sets-'+i).querySelectorAll('.set-row');
-    var sets=[];
-    rows.forEach(function(_,j){
-      var kg=document.getElementById('kg-'+i+'-'+j);
-      var rp=document.getElementById('rp-'+i+'-'+j);
-      var kv=kg?kg.value:''; var rv=rp?rp.value:'';
-      if(kv||rv) sets.push({kg:kv,reps:rv});
+  var usedNames=[];
+  DAYS.forEach(function(day){
+    var setsByEx=typeData[day.key];
+    if(!setsByEx) return;
+    var hasAny=false;
+    day.exercises.forEach(function(ex,i){
+      var rows=setsByEx[i]||[];
+      var sets=rows.filter(function(r){return r.kg||r.reps;});
+      if(sets.length>0){ exercises.push({name:ex.name,sets:sets}); hasAny=true; }
     });
-    if(sets.length>0) exercises.push({name:ex.name,sets:sets});
+    if(hasAny) usedNames.push(day.name);
   });
   if(!exercises.length){
     if(!auto) showToast('Registre ao menos uma serie.',false);
@@ -921,11 +965,13 @@ function saveWorkout(auto) {
   var durSec=getElapsedSecs();
   var durMin=Math.max(1,Math.floor(durSec/60));
   var kcal=calcCalories(selectedDay.key,durMin);
-  workouts.push({id:Date.now(),date:todayISO(),dayKey:selectedDay.key,dayName:selectedDay.name,exercises:exercises,duration:durSec,calories:kcal});
+  var dayName=usedNames.join(' + ');
+  workouts.push({id:Date.now(),date:todayISO(),dayKey:selectedDay.key,dayName:dayName,exercises:exercises,duration:durSec,calories:kcal});
   localStorage.setItem('mb_workouts',JSON.stringify(workouts));
   localStorage.removeItem('mb_draft');
+  typeData={};
   lastSetTime=null;
-  showToast((auto?'Treino finalizado automaticamente: ':'')+selectedDay.name+' - '+durMin+'min - '+kcal+' kcal',true);
+  showToast((auto?'Treino finalizado automaticamente: ':'')+dayName+' - '+durMin+'min - '+kcal+' kcal',true);
   updateHeader(); resetTimer(); renderExercises();
   document.getElementById('hdrTimer').style.display='none';
 }
@@ -1451,20 +1497,8 @@ function renderWeightChart() {
 
 // ── DRAFT SAVE / RESTORE ──────────────────────────────
 function saveDraft() {
-  var sets={};
-  selectedDay.exercises.forEach(function(ex,i){
-    var container=document.getElementById('sets-'+i);
-    if(!container) return;
-    var rows=container.querySelectorAll('.set-row');
-    var s=[];
-    rows.forEach(function(_,j){
-      var kg=document.getElementById('kg-'+i+'-'+j);
-      var rp=document.getElementById('rp-'+i+'-'+j);
-      s.push({kg:kg?kg.value:'',reps:rp?rp.value:''});
-    });
-    sets[i]=s;
-  });
-  localStorage.setItem('mb_draft',JSON.stringify({dayKey:selectedDay.key,timestamp:Date.now(),lastSetTime:lastSetTime,sets:sets}));
+  typeData[selectedDay.key]=captureSets(selectedDay);
+  localStorage.setItem('mb_draft',JSON.stringify({currentDayKey:selectedDay.key,timestamp:Date.now(),lastSetTime:lastSetTime,typeData:typeData}));
 }
 
 function checkDraft() {
@@ -1475,7 +1509,7 @@ function checkDraft() {
     var age=Date.now()-draft.timestamp;
     if(age>30*60*1000){localStorage.removeItem('mb_draft');return;}
     var minAgo=Math.round(age/60000);
-    var dayObj=DAYS.find(function(d){return d.key===draft.dayKey;})||{name:draft.dayKey};
+    var dayObj=DAYS.find(function(d){return d.key===draft.currentDayKey;})||{name:draft.currentDayKey};
     document.getElementById('resumeMsg').textContent=
       'Treino '+dayObj.name+' iniciado há '+(minAgo<1?'menos de 1 min':minAgo+' min')+'.';
     document.getElementById('resumeModal').style.display='flex';
@@ -1487,27 +1521,12 @@ function resumeDraft() {
   var draft=window._pendingDraft;
   document.getElementById('resumeModal').style.display='none';
   if(!draft) return;
-  selectType(draft.dayKey);
-  setTimeout(function(){
-    Object.keys(draft.sets).forEach(function(ei){
-      var sets=draft.sets[ei];
-      var exIdx=parseInt(ei);
-      var container=document.getElementById('sets-'+ei);
-      if(!container) return;
-      var existing=container.querySelectorAll('.set-row').length;
-      var rr=selectedDay.exercises[exIdx]?selectedDay.exercises[exIdx].repsRange:'';
-      for(var j=existing;j<sets.length;j++) addSet(exIdx,rr);
-      sets.forEach(function(s,j){
-        var kg=document.getElementById('kg-'+ei+'-'+j);
-        var rp=document.getElementById('rp-'+ei+'-'+j);
-        var sn=document.getElementById('sn-'+ei+'-'+j);
-        if(kg&&s.kg){kg.value=s.kg;kg.classList.add('has-v');}
-        if(rp&&s.reps){rp.value=s.reps;rp.classList.add('has-v');}
-        if(sn&&s.kg&&s.reps) sn.classList.add('done');
-      });
-    });
-    showTimerBar();
-  },50);
+  typeData=draft.typeData||{};
+  selectedDay=DAYS.find(function(d){return d.key===draft.currentDayKey;})||selectedDay;
+  renderTypeChips();
+  renderExercises();
+  applySets(selectedDay,typeData[selectedDay.key]);
+  showTimerBar();
   lastSetTime=draft.lastSetTime||draft.timestamp;
   localStorage.removeItem('mb_draft');
   window._pendingDraft=null;
@@ -1542,6 +1561,7 @@ renderHeaderDate();
 updateHeader();
 renderTypeChips();
 renderExercises();
+renderHistory();
 startTimer();
 checkDraft();
 
