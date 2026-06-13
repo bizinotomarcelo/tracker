@@ -107,6 +107,27 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 .last-perf { font-size: 11px; color: var(--t2); margin-top: 10px; padding: 8px 12px; background: var(--bg); border-radius: 6px; letter-spacing: .01em; }
 .last-perf .hi { color: var(--accent); font-weight: 600; }
 
+/* ── SWAP EXERCISE ── */
+.ex-actions { display: flex; gap: 8px; margin-top: 10px; }
+.ex-act-btn { flex: 1; background: var(--s2); border: 1px solid var(--b1); color: var(--t1); font-family: var(--f); font-size: 11px; font-weight: 600; padding: 8px; border-radius: 8px; text-align: center; cursor: pointer; letter-spacing: .02em; transition: all .15s; }
+.ex-act-btn:hover { border-color: rgba(0,255,136,.3); color: var(--accent); }
+.ex-act-btn.restore { color: var(--amber); }
+.ex-act-btn.restore:hover { border-color: rgba(212,146,10,.3); color: var(--amber); }
+.swap-panel { margin-top: 12px; padding: 12px; background: var(--bg); border: 1px solid var(--b1); border-radius: 10px; }
+.swap-loading { font-size: 12px; color: var(--t2); text-align: center; padding: 8px; }
+.swap-search { width: 100%; background: var(--s2); border: 1px solid var(--b1); border-radius: 8px; padding: 9px 10px; color: var(--t1); font-family: var(--f); font-size: 13px; margin-bottom: 8px; box-sizing: border-box; outline: none; }
+.swap-search::placeholder { color: var(--t3); }
+.swap-filters { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.swap-chip { font-size: 10px; padding: 5px 10px; border-radius: 999px; background: var(--s2); border: 1px solid var(--b1); color: var(--t2); cursor: pointer; transition: all .15s; }
+.swap-chip.active { background: var(--a-med); color: var(--accent); border-color: rgba(0,255,136,.25); }
+.swap-results { max-height: 240px; overflow-y: auto; }
+.swap-result { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 4px; border-bottom: 1px solid var(--b1); }
+.swap-result:last-child { border-bottom: none; }
+.swap-res-name { font-size: 12px; font-weight: 600; color: var(--t1); }
+.swap-res-meta { font-size: 10px; color: var(--t2); margin-top: 2px; text-transform: capitalize; }
+.swap-pick { font-size: 10px; font-weight: 700; color: var(--accent); border: 1px solid rgba(0,255,136,.25); border-radius: 8px; padding: 6px 10px; background: transparent; cursor: pointer; flex-shrink: 0; font-family: var(--f); }
+.swap-empty { font-size: 12px; color: var(--t2); text-align: center; padding: 12px; }
+
 /* ── SAVE — moved to SAVE BUTTON section below ── */
 
 /* ── NUTRIÇÃO ── */
@@ -633,6 +654,8 @@ let restIv         = null;
 let restAlerted    = false;
 let lastSetTime    = null;
 let typeData       = {}; // sets em andamento por tipo de treino (push1, pull1, legs, upper, push2)
+let exDb           = null; // catálogo de exercícios (carregado sob demanda)
+let swapState      = {}; // estado do painel de troca por índice de exercício
 const AUTO_FINISH_MS = 60*60*1000; // 1 hora
 let nutrDate    = todayISO();
 let evoPeriod   = 30;
@@ -873,9 +896,26 @@ function getLastPerf(name) {
   return {date:last.date,best};
 }
 
+function getOverrides() {
+  try { return JSON.parse(localStorage.getItem('mb_day_overrides')||'{}'); } catch(e) { return {}; }
+}
+function saveOverrides(ov) {
+  localStorage.setItem('mb_day_overrides',JSON.stringify(ov));
+}
+function getEffectiveExercise(day,i) {
+  var ov=getOverrides();
+  var dayOv=ov[day.key]||{};
+  var base=day.exercises[i];
+  return dayOv[i] ? Object.assign({},base,dayOv[i]) : base;
+}
+
 function renderExercises() {
   var html='';
-  selectedDay.exercises.forEach(function(ex,i){
+  var ov=getOverrides();
+  var dayOv=ov[selectedDay.key]||{};
+  selectedDay.exercises.forEach(function(base,i){
+    var ex=dayOv[i] ? Object.assign({},base,dayOv[i]) : base;
+    var overridden=!!dayOv[i];
     var last=getLastPerf(ex.name);
     var lastHtml=last
       ? '<div class="last-perf">ultimo: <span class="hi">'+last.best.kg+'kg x '+last.best.reps+' reps</span></div>'
@@ -889,10 +929,117 @@ function renderExercises() {
       +'<div class="set-lbls"><div></div><div class="set-lbl">KG</div><div class="set-lbl">Reps</div><div></div></div>'
       +'<div class="sets-tbl" id="sets-'+i+'">'+setsHtml+'</div>'
       +'<button class="add-set" onclick="addSet('+i+',\''+ex.repsRange+'\')">+ serie</button>'
+      +'<div class="ex-actions">'
+        +'<button class="ex-act-btn" onclick="toggleSwapPanel('+i+')">&#8596; Trocar exercício</button>'
+        +(overridden?'<button class="ex-act-btn restore" onclick="restoreExercise('+i+')">&#8634; restaurar padrão</button>':'')
+      +'</div>'
+      +'<div class="swap-panel" id="swap-'+i+'" style="display:none"></div>'
       +lastHtml
       +'</div>';
   });
   document.getElementById('exContainer').innerHTML=html;
+}
+
+// ── TROCAR EXERCÍCIO (catálogo PT-BR) ─────────────────
+function normName(s) {
+  var stop=['c','com','de','do','da','no','na','em'];
+  return (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ')
+    .split(' ').filter(function(t){return t&&stop.indexOf(t)===-1;}).sort().join(' ');
+}
+function loadExDb(cb) {
+  if(exDb) { cb(); return; }
+  var cached=localStorage.getItem('mb_exdb');
+  if(cached) { try{ exDb=JSON.parse(cached); cb(); return; }catch(e){} }
+  fetch('exercises-db.json').then(function(r){return r.json();}).then(function(data){
+    exDb=data;
+    try{ localStorage.setItem('mb_exdb',JSON.stringify(data)); }catch(e){}
+    cb();
+  }).catch(function(){ showToast('Não foi possível carregar o catálogo.',false); });
+}
+function toggleSwapPanel(ei) {
+  var panel=document.getElementById('swap-'+ei);
+  if(!panel) return;
+  if(panel.style.display==='block') { panel.style.display='none'; panel.innerHTML=''; return; }
+  document.querySelectorAll('.swap-panel').forEach(function(p){ p.style.display='none'; p.innerHTML=''; });
+  panel.style.display='block';
+  panel.innerHTML='<div class="swap-loading">Carregando catálogo...</div>';
+  loadExDb(function(){
+    var ex=getEffectiveExercise(selectedDay,ei);
+    var match=exDb.find(function(d){ return normName(d.name)===normName(ex.name); });
+    swapState[ei]={
+      query:'',
+      muscles: match ? new Set(match.primaryMuscles) : new Set(),
+      equip: match && match.equipment ? new Set([match.equipment]) : new Set()
+    };
+    renderSwapPanel(ei);
+  });
+}
+function renderSwapPanel(ei) {
+  var panel=document.getElementById('swap-'+ei);
+  if(!panel) return;
+  var st=swapState[ei];
+  var ex=getEffectiveExercise(selectedDay,ei);
+  var match=exDb.find(function(d){ return normName(d.name)===normName(ex.name); });
+  var muscleOpts=match ? Array.from(new Set(match.primaryMuscles.concat(match.secondaryMuscles||[]))) : [];
+  var equipOpts=match && match.equipment ? [match.equipment] : [];
+
+  var q=normName(st.query);
+  var results=exDb.filter(function(d){
+    if(q && !normName(d.name).includes(q)) return false;
+    if(st.muscles.size && !d.primaryMuscles.some(function(m){return st.muscles.has(m);})) return false;
+    if(st.equip.size && !st.equip.has(d.equipment)) return false;
+    return true;
+  }).slice(0,25);
+
+  var chipsHtml=muscleOpts.map(function(m){
+    return '<span class="swap-chip '+(st.muscles.has(m)?'active':'')+'" onclick="toggleSwapFilter('+ei+',\'muscle\',\''+m+'\')">'+m+'</span>';
+  }).join('')+equipOpts.map(function(eq){
+    return '<span class="swap-chip '+(st.equip.has(eq)?'active':'')+'" onclick="toggleSwapFilter('+ei+',\'equip\',\''+eq+'\')">'+eq+'</span>';
+  }).join('');
+
+  var resultsHtml=results.length
+    ? results.map(function(d){
+        var meta=(d.primaryMuscles||[]).join(', ')+(d.equipment?' — '+d.equipment:'');
+        return '<div class="swap-result">'
+          +'<div><div class="swap-res-name">'+d.name+'</div><div class="swap-res-meta">'+meta+'</div></div>'
+          +'<button class="swap-pick" onclick="pickExercise('+ei+',\''+d.id+'\')">Usar</button>'
+          +'</div>';
+      }).join('')
+    : '<div class="swap-empty">Nenhum exercício encontrado.</div>';
+
+  panel.innerHTML=
+    '<input class="swap-search" placeholder="Buscar exercício..." value="'+st.query.replace(/"/g,'&quot;')+'" oninput="onSwapSearch('+ei+',this.value)">'
+    +(chipsHtml?'<div class="swap-filters">'+chipsHtml+'</div>':'')
+    +'<div class="swap-results">'+resultsHtml+'</div>';
+}
+function toggleSwapFilter(ei,kind,val) {
+  var st=swapState[ei];
+  var set=kind==='muscle'?st.muscles:st.equip;
+  if(set.has(val)) set.delete(val); else set.add(val);
+  renderSwapPanel(ei);
+}
+function onSwapSearch(ei,val) {
+  swapState[ei].query=val;
+  renderSwapPanel(ei);
+}
+function pickExercise(ei,id) {
+  var item=exDb.find(function(d){ return d.id===id; });
+  if(!item) return;
+  var type=item.mechanic==='isolado'?'isolador':'composto';
+  var ov=getOverrides();
+  ov[selectedDay.key]=ov[selectedDay.key]||{};
+  ov[selectedDay.key][ei]={name:item.name,type:type};
+  saveOverrides(ov);
+  delete swapState[ei];
+  renderExercises();
+}
+function restoreExercise(ei) {
+  var ov=getOverrides();
+  if(ov[selectedDay.key]) {
+    delete ov[selectedDay.key][ei];
+    saveOverrides(ov);
+  }
+  renderExercises();
 }
 
 function renderSetRow(ei,si,rr) {
