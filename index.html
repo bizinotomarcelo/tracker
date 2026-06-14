@@ -115,7 +115,7 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 .ex-act-btn.restore:hover { border-color: rgba(212,146,10,.3); color: var(--amber); }
 .swap-panel { margin-top: 12px; padding: 12px; background: var(--bg); border: 1px solid var(--b1); border-radius: 10px; }
 .swap-loading { font-size: 12px; color: var(--t2); text-align: center; padding: 8px; }
-.swap-search { width: 100%; background: var(--s2); border: 1px solid var(--b1); border-radius: 8px; padding: 9px 10px; color: var(--t1); font-family: var(--f); font-size: 13px; margin-bottom: 8px; box-sizing: border-box; outline: none; }
+.swap-search { width: 100%; background: var(--s2); border: 1px solid var(--b1); border-radius: 8px; padding: 9px 10px; color: var(--t1); font-family: var(--f); font-size: 16px; margin-bottom: 8px; box-sizing: border-box; outline: none; }
 .swap-search::placeholder { color: var(--t3); }
 .swap-filters { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
 .swap-chip { font-size: 10px; padding: 5px 10px; border-radius: 999px; background: var(--s2); border: 1px solid var(--b1); color: var(--t2); cursor: pointer; transition: all .15s; }
@@ -983,6 +983,22 @@ function renderSwapPanel(ei) {
   var muscleOpts=match ? Array.from(new Set(match.primaryMuscles.concat(match.secondaryMuscles||[]))) : [];
   var equipOpts=match && match.equipment ? [match.equipment] : [];
 
+  var chipsHtml=muscleOpts.map(function(m){
+    return '<span class="swap-chip '+(st.muscles.has(m)?'active':'')+'" onclick="toggleSwapFilter('+ei+',\'muscle\',\''+m+'\')">'+m+'</span>';
+  }).join('')+equipOpts.map(function(eq){
+    return '<span class="swap-chip '+(st.equip.has(eq)?'active':'')+'" onclick="toggleSwapFilter('+ei+',\'equip\',\''+eq+'\')">'+eq+'</span>';
+  }).join('');
+
+  panel.innerHTML=
+    '<input class="swap-search" placeholder="Buscar exercício..." value="'+st.query.replace(/"/g,'&quot;')+'" oninput="onSwapSearch('+ei+',this.value)">'
+    +(chipsHtml?'<div class="swap-filters">'+chipsHtml+'</div>':'')
+    +'<div class="swap-results" id="swap-results-'+ei+'"></div>';
+  renderSwapResults(ei);
+}
+function renderSwapResults(ei) {
+  var container=document.getElementById('swap-results-'+ei);
+  if(!container) return;
+  var st=swapState[ei];
   var q=normName(st.query);
   var results=exDb.filter(function(d){
     if(q && !normName(d.name).includes(q)) return false;
@@ -991,13 +1007,7 @@ function renderSwapPanel(ei) {
     return true;
   }).slice(0,25);
 
-  var chipsHtml=muscleOpts.map(function(m){
-    return '<span class="swap-chip '+(st.muscles.has(m)?'active':'')+'" onclick="toggleSwapFilter('+ei+',\'muscle\',\''+m+'\')">'+m+'</span>';
-  }).join('')+equipOpts.map(function(eq){
-    return '<span class="swap-chip '+(st.equip.has(eq)?'active':'')+'" onclick="toggleSwapFilter('+ei+',\'equip\',\''+eq+'\')">'+eq+'</span>';
-  }).join('');
-
-  var resultsHtml=results.length
+  container.innerHTML=results.length
     ? results.map(function(d){
         var meta=(d.primaryMuscles||[]).join(', ')+(d.equipment?' — '+d.equipment:'');
         return '<div class="swap-result">'
@@ -1006,11 +1016,6 @@ function renderSwapPanel(ei) {
           +'</div>';
       }).join('')
     : '<div class="swap-empty">Nenhum exercício encontrado.</div>';
-
-  panel.innerHTML=
-    '<input class="swap-search" placeholder="Buscar exercício..." value="'+st.query.replace(/"/g,'&quot;')+'" oninput="onSwapSearch('+ei+',this.value)">'
-    +(chipsHtml?'<div class="swap-filters">'+chipsHtml+'</div>':'')
-    +'<div class="swap-results">'+resultsHtml+'</div>';
 }
 function toggleSwapFilter(ei,kind,val) {
   var st=swapState[ei];
@@ -1020,7 +1025,7 @@ function toggleSwapFilter(ei,kind,val) {
 }
 function onSwapSearch(ei,val) {
   swapState[ei].query=val;
-  renderSwapPanel(ei);
+  renderSwapResults(ei);
 }
 function pickExercise(ei,id) {
   var item=exDb.find(function(d){ return d.id===id; });
