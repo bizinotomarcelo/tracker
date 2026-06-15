@@ -299,6 +299,19 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 .resume-btn-p { width: 100%; padding: 15px; border-radius: 10px; background: var(--t1); border: none; color: #0D0D0D; font-family: var(--f); font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 8px; letter-spacing: .02em; }
 .resume-btn-s { width: 100%; padding: 13px; border-radius: 10px; background: transparent; border: 1px solid var(--b1); color: var(--t2); font-family: var(--f); font-size: 14px; cursor: pointer; }
 
+/* ── PAID OVERLAY ── */
+.paid-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 70; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+.paid-overlay.show { opacity: 1; pointer-events: all; }
+.paid-check { width: 96px; height: 96px; border-radius: 50%; border: 3px solid var(--accent); display: flex; align-items: center; justify-content: center; transform: scale(.6); opacity: 0; transition: transform .4s cubic-bezier(.34,1.56,.64,1), opacity .3s ease; box-shadow: 0 0 0 0 rgba(0,255,136,.3); }
+.paid-overlay.show .paid-check { transform: scale(1); opacity: 1; box-shadow: 0 0 0 14px rgba(0,255,136,0); transition: transform .4s cubic-bezier(.34,1.56,.64,1), opacity .3s ease, box-shadow .6s ease-out .15s; }
+.paid-check svg { width: 48px; height: 48px; }
+.paid-check path { stroke: var(--accent); stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 28; stroke-dashoffset: 28; transition: stroke-dashoffset .35s ease .25s; }
+.paid-overlay.show .paid-check path { stroke-dashoffset: 0; }
+.paid-text { font-size: 22px; font-weight: 800; color: var(--t1); letter-spacing: -.01em; opacity: 0; transform: translateY(6px); transition: opacity .3s ease .35s, transform .3s ease .35s; }
+.paid-overlay.show .paid-text { opacity: 1; transform: translateY(0); }
+.paid-sub { font-size: 13px; color: var(--t2); opacity: 0; transition: opacity .3s ease .45s; }
+.paid-overlay.show .paid-sub { opacity: 1; }
+
 /* ── SPLASH ── */
 #splash {
   position: fixed; inset: 0;
@@ -509,7 +522,7 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 
 <!-- BOTTOM NAV -->
 <nav class="bnav">
-  <button class="ni active" onclick="switchView('historico',this)">
+  <button class="ni active" id="navHistorico" onclick="switchView('historico',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
     <span class="ni-lbl">Histórico</span>
   </button>
@@ -546,6 +559,15 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
     <button class="resume-btn-p" onclick="resumeDraft()">Retomar</button>
     <button class="resume-btn-s" onclick="discardDraft()">Novo treino</button>
   </div>
+</div>
+
+<!-- PAID OVERLAY -->
+<div class="paid-overlay" id="paidOverlay">
+  <div class="paid-check">
+    <svg viewBox="0 0 24 24"><path d="M4 12.5L9.5 18 20 6"/></svg>
+  </div>
+  <div class="paid-text">Tá pago</div>
+  <div class="paid-sub" id="paidSub"></div>
 </div>
 
 <script>
@@ -1123,9 +1145,20 @@ function saveWorkout(auto) {
   localStorage.removeItem('mb_draft');
   typeData={};
   lastSetTime=null;
-  showToast((auto?'Treino finalizado automaticamente: ':'')+dayName+' - '+durMin+'min - '+kcal+' kcal',true);
   updateHeader(); resetTimer(); renderExercises();
   document.getElementById('hdrTimer').style.display='none';
+  showPaidOverlay(dayName+' — '+durMin+'min — '+kcal+' kcal');
+}
+
+// ── OVERLAY "TÁ PAGO" ─────────────────────────────────
+function showPaidOverlay(sub) {
+  var ov=document.getElementById('paidOverlay');
+  document.getElementById('paidSub').textContent=sub||'';
+  ov.classList.add('show');
+  setTimeout(function(){
+    ov.classList.remove('show');
+    switchView('historico',document.getElementById('navHistorico'));
+  },1600);
 }
 
 // ── AUTO-FINISH (1h sem novo registro) ────────────────
