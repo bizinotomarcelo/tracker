@@ -219,6 +219,11 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 .kpi-badge.up   { background: var(--a-med); color: var(--accent); border: 1px solid rgba(0,255,136,.2); }
 .kpi-badge.down { background: rgba(255,68,68,.1); color: var(--red); border: 1px solid rgba(255,68,68,.2); }
 .kpi-badge.flat { background: var(--s2); color: var(--t2); border: 1px solid var(--b1); }
+.kpi-period-tabs { display: flex; background: var(--s2); border-radius: 8px; padding: 3px; gap: 2px; margin-bottom: 12px; }
+.kpi-period-tab { flex: 1; padding: 7px 4px; border-radius: 6px; border: none; background: transparent; color: var(--t2); font-size: 11px; font-weight: 600; cursor: pointer; font-family: var(--f); transition: all .15s; text-align: center; }
+.kpi-period-tab.active { background: var(--t1); color: #0D0D0D; }
+.kpi-period-tab:hover:not(.active) { color: var(--t1); }
+.kpi-card-sub-title { font-size: 10px; font-weight: 600; color: var(--t2); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 12px; }
 .io-btns { display: flex; gap: 8px; padding: 16px 24px 0; }
 .io-btn  { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--b1); background: transparent; color: var(--t2); font-size: 12px; font-weight: 500; font-family: var(--f); cursor: pointer; transition: all .15s; text-align: center; }
 .io-btn:hover { border-color: var(--b2); color: var(--t1); }
@@ -489,7 +494,16 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 
   <div class="kpi-extra">
     <div class="kpi-card" id="kpiPR"></div>
-    <div class="kpi-card" id="kpiMuscle"></div>
+    <div class="kpi-card">
+      <div class="kpi-period-tabs" id="muscleKpiTabs">
+        <button class="kpi-period-tab" data-days="7" onclick="setMuscleKpiPeriod(7)">7 dias</button>
+        <button class="kpi-period-tab" data-days="30" onclick="setMuscleKpiPeriod(30)">30 dias</button>
+        <button class="kpi-period-tab" data-days="182" onclick="setMuscleKpiPeriod(182)">6 meses</button>
+        <button class="kpi-period-tab" data-days="365" onclick="setMuscleKpiPeriod(365)">1 ano</button>
+      </div>
+      <div id="kpiMuscleVol"></div>
+      <div id="kpiMuscleSets" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--b1)"></div>
+    </div>
     <div class="kpi-card" id="kpiTrend"></div>
     <div class="kpi-card" id="kpiFreq"></div>
     <div class="kpi-card" id="kpiWeight"></div>
@@ -737,6 +751,7 @@ const AUTO_FINISH_MS = 60*60*1000; // 1 hora
 let nutrDate    = todayISO();
 let evoPeriod   = 30;
 let selectedCalDate = null;
+let muscleKpiPeriod = 7;
 
 // ── UTILS ─────────────────────────────────────────────
 function todayISO()   { return new Date().toISOString().split('T')[0]; }
@@ -814,8 +829,8 @@ function getPRs() {
   });
   return prEvents;
 }
-function getMuscleVolumes() {
-  var cutoff=new Date(); cutoff.setDate(cutoff.getDate()-7); cutoff.setHours(0,0,0,0);
+function getMuscleVolumes(days) {
+  var cutoff=new Date(); cutoff.setDate(cutoff.getDate()-(days||7)); cutoff.setHours(0,0,0,0);
   var vols={};
   workouts.forEach(function(w){
     if(parseDate(w.date)<cutoff) return;
@@ -826,6 +841,18 @@ function getMuscleVolumes() {
     });
   });
   return vols;
+}
+function getMuscleSets(days) {
+  var cutoff=new Date(); cutoff.setDate(cutoff.getDate()-(days||7)); cutoff.setHours(0,0,0,0);
+  var counts={};
+  workouts.forEach(function(w){
+    if(parseDate(w.date)<cutoff) return;
+    w.exercises.forEach(function(ex){
+      var g=getMuscleGroup(ex.name);
+      counts[g]=(counts[g]||0)+ex.sets.length;
+    });
+  });
+  return counts;
 }
 function getVolumeTrend() {
   var lastWeek=volInRange(7,0);
@@ -1540,6 +1567,11 @@ function renderHistory() {
   if(selectedCalDate) showDayCard(selectedCalDate.y,selectedCalDate.m,selectedCalDate.d,true);
 }
 
+function setMuscleKpiPeriod(days) {
+  muscleKpiPeriod=days;
+  renderExtraKpis();
+}
+
 function renderExtraKpis() {
   var now2=new Date();
 
@@ -1561,20 +1593,39 @@ function renderExtraKpis() {
   }
   document.getElementById('kpiPR').innerHTML=prHtml;
 
-  // Volume por grupo muscular
-  var vols=getMuscleVolumes();
-  var groups=Object.keys(vols);
-  var muscleHtml='<div class="kpi-title">Volume por grupo muscular (7 dias)</div>';
-  if(!groups.length){
-    muscleHtml+='<div class="kpi-empty">Sem treinos nos últimos 7 dias</div>';
+  // Volume e séries por grupo muscular
+  document.querySelectorAll('#muscleKpiTabs .kpi-period-tab').forEach(function(t){
+    t.classList.toggle('active',parseInt(t.dataset.days)===muscleKpiPeriod);
+  });
+  var periodLbl={7:'7 dias',30:'30 dias',182:'6 meses',365:'1 ano'}[muscleKpiPeriod];
+
+  var vols=getMuscleVolumes(muscleKpiPeriod);
+  var volGroups=Object.keys(vols);
+  var volHtml='<div class="kpi-card-sub-title">Volume por grupo muscular ('+periodLbl+')</div>';
+  if(!volGroups.length){
+    volHtml+='<div class="kpi-empty">Sem treinos no período</div>';
   } else {
-    var maxVol=Math.max.apply(null,groups.map(function(g){return vols[g];}));
-    groups.sort(function(a,b){return vols[b]-vols[a];}).forEach(function(g){
+    var maxVol=Math.max.apply(null,volGroups.map(function(g){return vols[g];}));
+    volGroups.sort(function(a,b){return vols[b]-vols[a];}).forEach(function(g){
       var pct=maxVol>0?(vols[g]/maxVol*100):0;
-      muscleHtml+='<div class="kpi-bar-wrap"><div class="kpi-bar-lbl"><span>'+g+'</span><span>'+fmtNum(vols[g])+' kg</span></div><div class="kpi-bar-track"><div class="kpi-bar-fill" style="width:'+pct+'%"></div></div></div>';
+      volHtml+='<div class="kpi-bar-wrap"><div class="kpi-bar-lbl"><span>'+g+'</span><span>'+fmtNum(vols[g])+' kg</span></div><div class="kpi-bar-track"><div class="kpi-bar-fill" style="width:'+pct+'%"></div></div></div>';
     });
   }
-  document.getElementById('kpiMuscle').innerHTML=muscleHtml;
+  document.getElementById('kpiMuscleVol').innerHTML=volHtml;
+
+  var setsCounts=getMuscleSets(muscleKpiPeriod);
+  var setsGroups=Object.keys(setsCounts);
+  var setsHtml='<div class="kpi-card-sub-title">Séries por grupo muscular ('+periodLbl+')</div>';
+  if(!setsGroups.length){
+    setsHtml+='<div class="kpi-empty">Sem treinos no período</div>';
+  } else {
+    var maxSets=Math.max.apply(null,setsGroups.map(function(g){return setsCounts[g];}));
+    setsGroups.sort(function(a,b){return setsCounts[b]-setsCounts[a];}).forEach(function(g){
+      var pct=maxSets>0?(setsCounts[g]/maxSets*100):0;
+      setsHtml+='<div class="kpi-bar-wrap"><div class="kpi-bar-lbl"><span>'+g+'</span><span>'+setsCounts[g]+' séries</span></div><div class="kpi-bar-track"><div class="kpi-bar-fill" style="width:'+pct+'%"></div></div></div>';
+    });
+  }
+  document.getElementById('kpiMuscleSets').innerHTML=setsHtml;
 
   // Tendência de volume/semana
   var trend=getVolumeTrend();
