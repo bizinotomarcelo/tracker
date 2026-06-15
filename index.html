@@ -493,6 +493,7 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
   <div class="streak-bar" id="streakBar"></div>
 
   <div class="kpi-extra">
+    <div class="kpi-card" id="kpiVolume"></div>
     <div class="kpi-card" id="kpiPR"></div>
     <div class="kpi-card">
       <div class="kpi-period-tabs" id="muscleKpiTabs">
@@ -1574,6 +1575,16 @@ function setMuscleKpiPeriod(days) {
 
 function renderExtraKpis() {
   var now2=new Date();
+
+  // Volume levantado (tonnagem)
+  var moVol=workouts.filter(function(w){
+    var d=parseDate(w.date);
+    return d.getFullYear()===now2.getFullYear()&&d.getMonth()===now2.getMonth();
+  }).reduce(function(a,w){return a+calcVol(w);},0);
+  var volHtml='<div class="kpi-title">Volume levantado (tonelagem)</div>'
+    +'<div class="kpi-row"><span class="kpi-row-lbl">Este mês</span><span class="kpi-row-val">'+fmtNum(moVol)+' kg</span></div>'
+    +'<div class="kpi-row"><span class="kpi-row-lbl">Total</span><span class="kpi-row-val">'+fmtNum(totalVolAll())+' kg</span></div>';
+  document.getElementById('kpiVolume').innerHTML=volHtml;
 
   // Progressão de carga (PR tracking)
   var prEvents=getPRs();
