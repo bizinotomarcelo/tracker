@@ -9,6 +9,9 @@
 <meta name="theme-color" content="#0D0D0D">
 <title>Tracker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
@@ -291,6 +294,32 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 .settings-inp::-webkit-outer-spin-button, .settings-inp::-webkit-inner-spin-button { -webkit-appearance: none; }
 .settings-inp:focus { border-color: rgba(0,255,136,.4); }
 .settings-save { width: 100%; padding: 14px; border-radius: 10px; background: var(--t1); border: none; color: #0D0D0D; font-family: var(--f); font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 16px; letter-spacing: .03em; text-transform: uppercase; }
+.acct-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.acct-email { font-size: 13px; color: var(--t1); font-weight: 500; word-break: break-all; padding-right: 10px; }
+.acct-logout { flex-shrink: 0; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--b1); background: transparent; color: var(--red); font-family: var(--f); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; }
+.acct-logout:hover { border-color: rgba(255,68,68,.4); background: rgba(255,68,68,.08); }
+
+/* ── LOGIN ── */
+#loginScreen {
+  position: fixed; inset: 0; z-index: 998;
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--bg); overflow: hidden; padding: 24px;
+}
+#loginScreen.show { display: flex; }
+#loginScreen .splash-bg, #loginScreen .splash-overlay { position: absolute; inset: 0; }
+#loginScreen .splash-bg { background-image: url('splash-bg.jpg'); background-size: cover; background-position: center top; filter: brightness(.12) saturate(.25) blur(3px); transform: scale(1.06); }
+#loginScreen .splash-overlay { background: linear-gradient(to top, #0D0D0D 20%, rgba(13,13,13,.82) 60%, rgba(13,13,13,.65) 100%); }
+.login-card { position: relative; z-index: 2; width: 100%; max-width: 360px; }
+.login-icon { width: 72px; height: 72px; background: #1A1A1A; border-radius: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1px rgba(255,255,255,.07), 0 24px 60px rgba(0,0,0,.8); margin: 0 auto 14px; }
+.login-name { color: #F0F0F0; font-size: 20px; font-weight: 400; text-align: center; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 28px; }
+.login-title { font-size: 16px; font-weight: 700; color: var(--t1); margin-bottom: 16px; text-align: center; }
+.login-field { margin-bottom: 12px; }
+.login-error { font-size: 12px; color: var(--red); text-align: center; margin-top: 10px; min-height: 16px; }
+.login-switch { font-size: 12px; color: var(--t2); text-align: center; margin-top: 18px; }
+.login-switch a, .login-forgot { color: var(--accent); cursor: pointer; text-decoration: none; font-weight: 600; }
+.login-forgot { display: block; font-size: 11px; color: var(--t2); text-align: center; margin-top: 12px; cursor: pointer; }
+.login-forgot:hover { color: var(--t1); }
 
 /* ── TOAST ── */
 .toast { position: fixed; bottom: 130px; left: 50%; transform: translateX(-50%) translateY(8px); background: var(--s1); border: 1px solid var(--b2); color: var(--t1); padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 500; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 100; white-space: nowrap; }
@@ -402,6 +431,46 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
       </svg>
     </div>
     <div class="splash-name">Tracker</div>
+  </div>
+</div>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+  <div class="splash-bg"></div>
+  <div class="splash-overlay"></div>
+  <div class="login-card">
+    <div class="login-icon">
+      <svg width="40" height="40" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#FFFFFF"/>
+            <stop offset="100%" stop-color="#A8A8A8"/>
+          </linearGradient>
+          <linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#C8C8C8"/>
+            <stop offset="60%" stop-color="#888888"/>
+            <stop offset="100%" stop-color="#00FF88"/>
+          </linearGradient>
+        </defs>
+        <rect x="6" y="10" width="60" height="17" rx="3" fill="url(#lg1)"/>
+        <polygon points="28,27 44,27 44,46 28,62" fill="url(#lg2)"/>
+        <polygon points="44,46 44,62 28,62" fill="#00FF88" opacity=".92"/>
+      </svg>
+    </div>
+    <div class="login-name">Tracker</div>
+    <div class="login-title" id="loginTitle">Entrar</div>
+    <div class="login-field">
+      <label class="settings-lbl">E-mail</label>
+      <input class="settings-inp" type="email" id="loginEmail" autocomplete="email" placeholder="voce@exemplo.com">
+    </div>
+    <div class="login-field">
+      <label class="settings-lbl">Senha</label>
+      <input class="settings-inp" type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••">
+    </div>
+    <button class="settings-save" id="loginSubmitBtn" onclick="submitAuthForm()">Entrar</button>
+    <div class="login-error" id="loginError"></div>
+    <a class="login-forgot" onclick="doResetPassword()">Esqueci minha senha</a>
+    <div class="login-switch" id="loginSwitch">Não tem conta? <a onclick="toggleAuthMode()">Criar conta</a></div>
   </div>
 </div>
 
@@ -592,6 +661,11 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
     <input class="settings-inp" type="number" id="weightInp" min="40" max="200" step="0.5" placeholder="90">
   </div>
   <button class="settings-save" onclick="saveSettings()">Salvar</button>
+  <div class="settings-lbl" style="margin-top:24px">Conta</div>
+  <div class="acct-row">
+    <div class="acct-email" id="acctEmail"></div>
+    <button class="acct-logout" onclick="doLogout()">Sair</button>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -727,6 +801,23 @@ const MEALS = [
 
 const TARGETS = { kcal:3050, prot:210, carb:330, fat:85 };
 
+// ── FIREBASE ──────────────────────────────────────────
+// Substitua pelos dados do SEU projeto Firebase (Project settings > Web app).
+const firebaseConfig = {
+  apiKey:            "SUA_API_KEY",
+  authDomain:        "SEU_PROJETO.firebaseapp.com",
+  projectId:         "SEU_PROJETO",
+  storageBucket:     "SEU_PROJETO.appspot.com",
+  messagingSenderId: "SEU_SENDER_ID",
+  appId:             "SEU_APP_ID",
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+let currentUser = null;
+let syncTimer   = null;
+let authMode    = 'login'; // 'login' | 'signup'
+
 // ── STATE ─────────────────────────────────────────────
 let workouts    = JSON.parse(localStorage.getItem('mb_workouts') || '[]');
 let selectedDay = DAYS[0];
@@ -753,6 +844,120 @@ let nutrDate    = todayISO();
 let evoPeriod   = 30;
 let selectedCalDate = null;
 let muscleKpiPeriod = 7;
+
+// ── AUTH / SYNC ───────────────────────────────────────
+function authErrorMsg(err) {
+  switch(err.code){
+    case 'auth/invalid-email': return 'E-mail inválido.';
+    case 'auth/user-disabled': return 'Conta desativada.';
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential': return 'E-mail ou senha incorretos.';
+    case 'auth/email-already-in-use': return 'Este e-mail já está cadastrado.';
+    case 'auth/weak-password': return 'A senha precisa ter pelo menos 6 caracteres.';
+    default: return 'Erro: '+err.message;
+  }
+}
+function toggleAuthMode() {
+  authMode = authMode==='login' ? 'signup' : 'login';
+  document.getElementById('loginTitle').textContent     = authMode==='signup'?'Criar conta':'Entrar';
+  document.getElementById('loginSubmitBtn').textContent  = authMode==='signup'?'Criar conta':'Entrar';
+  document.getElementById('loginSwitch').innerHTML = authMode==='signup'
+    ? 'Já tem conta? <a onclick="toggleAuthMode()">Entrar</a>'
+    : 'Não tem conta? <a onclick="toggleAuthMode()">Criar conta</a>';
+  var errEl=document.getElementById('loginError');
+  errEl.style.color=''; errEl.textContent='';
+}
+function submitAuthForm() {
+  var email=document.getElementById('loginEmail').value.trim();
+  var pw=document.getElementById('loginPassword').value;
+  var errEl=document.getElementById('loginError');
+  errEl.style.color=''; errEl.textContent='';
+  if(!email||!pw){ errEl.textContent='Preencha e-mail e senha.'; return; }
+  var action = authMode==='signup'
+    ? auth.createUserWithEmailAndPassword(email,pw)
+    : auth.signInWithEmailAndPassword(email,pw);
+  action.catch(function(err){ errEl.textContent=authErrorMsg(err); });
+}
+function doResetPassword() {
+  var email=document.getElementById('loginEmail').value.trim();
+  var errEl=document.getElementById('loginError');
+  errEl.style.color=''; errEl.textContent='';
+  if(!email){ errEl.textContent='Digite seu e-mail para recuperar a senha.'; return; }
+  auth.sendPasswordResetEmail(email).then(function(){
+    errEl.style.color='var(--accent)';
+    errEl.textContent='E-mail de recuperação enviado.';
+  }).catch(function(err){ errEl.textContent=authErrorMsg(err); });
+}
+function doLogout() {
+  if(!confirm('Sair da conta?')) return;
+  ['mb_workouts','mb_weight','mb_weight_history','mb_day_overrides'].forEach(function(k){localStorage.removeItem(k);});
+  Object.keys(localStorage).filter(function(k){return k.indexOf('mb_nutr_')===0;}).forEach(function(k){localStorage.removeItem(k);});
+  auth.signOut().then(function(){ location.reload(); });
+}
+function loadFromCloud(uid) {
+  db.collection('users').doc(uid).get().then(function(doc){
+    if(doc.exists){
+      var data=doc.data();
+      if(data.workouts)      localStorage.setItem('mb_workouts',JSON.stringify(data.workouts));
+      if(data.weight!=null)  localStorage.setItem('mb_weight',String(data.weight));
+      if(data.weightHistory) localStorage.setItem('mb_weight_history',JSON.stringify(data.weightHistory));
+      if(data.dayOverrides)  localStorage.setItem('mb_day_overrides',JSON.stringify(data.dayOverrides));
+      if(data.nutrition) Object.keys(data.nutrition).forEach(function(iso){
+        localStorage.setItem('mb_nutr_'+iso,JSON.stringify(data.nutrition[iso]));
+      });
+      workouts=JSON.parse(localStorage.getItem('mb_workouts')||'[]');
+      startApp();
+    } else {
+      saveToCloud();
+      startApp();
+    }
+  }).catch(function(err){
+    console.error('Erro ao carregar dados da nuvem',err);
+    startApp();
+  });
+}
+function saveToCloud() {
+  if(!currentUser) return;
+  var nutrition={};
+  Object.keys(localStorage).forEach(function(k){
+    if(k.indexOf('mb_nutr_')===0) nutrition[k.slice('mb_nutr_'.length)]=JSON.parse(localStorage.getItem(k));
+  });
+  var data={
+    workouts:      JSON.parse(localStorage.getItem('mb_workouts')||'[]'),
+    weight:        parseFloat(localStorage.getItem('mb_weight')||'90'),
+    weightHistory: JSON.parse(localStorage.getItem('mb_weight_history')||'[]'),
+    dayOverrides:  JSON.parse(localStorage.getItem('mb_day_overrides')||'{}'),
+    nutrition:     nutrition,
+    updatedAt:     firebase.firestore.FieldValue.serverTimestamp(),
+  };
+  db.collection('users').doc(currentUser.uid).set(data).catch(function(err){
+    console.error('Erro ao sincronizar com a nuvem',err);
+  });
+}
+function scheduleSync() {
+  if(!currentUser) return;
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(saveToCloud,1500);
+}
+auth.onAuthStateChanged(function(user){
+  var splash=document.getElementById('splash');
+  var loginScreen=document.getElementById('loginScreen');
+  var appEl=document.querySelector('.app');
+  if(user){
+    currentUser=user;
+    document.getElementById('acctEmail').textContent=user.email;
+    loginScreen.classList.remove('show');
+    appEl.style.display='';
+    loadFromCloud(user.uid);
+  } else {
+    currentUser=null;
+    appEl.style.display='none';
+    loginScreen.classList.add('show');
+  }
+  splash.classList.add('fade');
+  setTimeout(function(){ splash.style.display='none'; },500);
+});
 
 // ── UTILS ─────────────────────────────────────────────
 function todayISO()   { return new Date().toISOString().split('T')[0]; }
@@ -1034,6 +1239,7 @@ function saveSettings() {
     for(var i=0;i<hist.length;i++){if(hist[i].date===today){idx=i;break;}}
     if(idx>=0) hist[idx].kg=w; else hist.push({date:today,kg:w});
     localStorage.setItem('mb_weight_history',JSON.stringify(hist));
+    scheduleSync();
   }
   closeSettings(); showToast('Salvo.',true);
 }
@@ -1107,6 +1313,7 @@ function getOverrides() {
 }
 function saveOverrides(ov) {
   localStorage.setItem('mb_day_overrides',JSON.stringify(ov));
+  scheduleSync();
 }
 function getEffectiveExercise(day,i) {
   var ov=getOverrides();
@@ -1327,6 +1534,7 @@ function saveWorkout(auto) {
   workouts.push({id:Date.now(),date:todayISO(),dayKey:selectedDay.key,dayName:dayName,exercises:exercises,duration:durSec,calories:kcal});
   localStorage.setItem('mb_workouts',JSON.stringify(workouts));
   localStorage.removeItem('mb_draft');
+  scheduleSync();
   typeData={};
   lastSetTime=null;
   updateHeader(); resetTimer(); renderExercises();
@@ -1355,7 +1563,7 @@ document.addEventListener('visibilitychange',function(){ if(!document.hidden) ch
 
 // ── NUTRITION ─────────────────────────────────────────
 function getNutrDay(iso)       { return JSON.parse(localStorage.getItem('mb_nutr_'+iso)||'{}'); }
-function saveNutrDay(iso,data) { localStorage.setItem('mb_nutr_'+iso,JSON.stringify(data)); }
+function saveNutrDay(iso,data) { localStorage.setItem('mb_nutr_'+iso,JSON.stringify(data)); scheduleSync(); }
 
 function nutrChangeDay(dir) {
   var d=parseDate(nutrDate); d.setDate(d.getDate()+dir);
@@ -1718,6 +1926,7 @@ function delWorkout(id,e) {
   if(!confirm('Excluir este treino?')) return;
   workouts=workouts.filter(function(w){return w.id!==id;});
   localStorage.setItem('mb_workouts',JSON.stringify(workouts));
+  scheduleSync();
   renderHistory(); updateHeader();
 }
 function exportHealth(id,e) {
@@ -1746,6 +1955,7 @@ function importData(e) {
       var ex=new Set(workouts.map(function(w){return w.id;})); var added=0;
       imp.forEach(function(w){if(!ex.has(w.id)){workouts.push(w);added++;}});
       localStorage.setItem('mb_workouts',JSON.stringify(workouts));
+      scheduleSync();
       showToast(added+' treino'+(added!==1?'s':'')+' importado'+(added!==1?'s':'')+'.',true);
       updateHeader(); renderHistory();
     }catch(err){showToast('Erro ao importar.',false);}
@@ -2039,22 +2249,16 @@ lockOrientation();
 document.addEventListener('visibilitychange',function(){ if(!document.hidden) lockOrientation(); });
 
 // ── INIT ──────────────────────────────────────────────
-renderHeaderDate();
-updateHeader();
-renderTypeChips();
-renderExercises();
-renderHistory();
-startTimer();
-checkDraft();
-
-// ── SPLASH ────────────────────────────────────────────
-(function() {
-  var splash = document.getElementById('splash');
-  setTimeout(function() {
-    splash.classList.add('fade');
-    setTimeout(function() { splash.style.display = 'none'; }, 500);
-  }, 2000);
-})();
+// Chamado pelo auth.onAuthStateChanged após confirmar login e carregar dados da nuvem.
+function startApp() {
+  renderHeaderDate();
+  updateHeader();
+  renderTypeChips();
+  renderExercises();
+  renderHistory();
+  startTimer();
+  checkDraft();
+}
 </script>
 </body>
 </html>
