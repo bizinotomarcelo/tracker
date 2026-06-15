@@ -199,6 +199,26 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 .cdc-vol span { color: var(--accent); }
 .streak-bar { text-align: center; padding: 14px 24px 2px; font-size: 13px; color: var(--t2); }
 .streak-bar strong { color: var(--t1); }
+.kpi-extra { padding: 16px 24px 0; display: flex; flex-direction: column; gap: 10px; }
+.kpi-card { background: var(--s1); border: 1px solid var(--b1); border-radius: 14px; padding: 16px; }
+.kpi-title { font-size: 10px; font-weight: 600; color: var(--t2); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 12px; }
+.kpi-big { font-size: 24px; font-weight: 800; color: var(--t1); letter-spacing: -.03em; line-height: 1; font-feature-settings: 'tnum' 1; }
+.kpi-sub { font-size: 12px; color: var(--t2); margin-top: 6px; line-height: 1.5; }
+.kpi-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 12px; color: var(--t1); border-bottom: 1px solid var(--b1); }
+.kpi-row:last-child { border-bottom: none; padding-bottom: 0; }
+.kpi-row-lbl { color: var(--t2); }
+.kpi-row-val { font-weight: 700; font-feature-settings: 'tnum' 1; }
+.kpi-bar-wrap { margin-bottom: 10px; }
+.kpi-bar-wrap:last-child { margin-bottom: 0; }
+.kpi-bar-lbl { display: flex; justify-content: space-between; font-size: 11px; color: var(--t2); margin-bottom: 5px; text-transform: capitalize; }
+.kpi-bar-lbl span:last-child { color: var(--t1); font-weight: 600; font-feature-settings: 'tnum' 1; }
+.kpi-bar-track { height: 6px; border-radius: 3px; background: var(--s2); overflow: hidden; }
+.kpi-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; }
+.kpi-empty { font-size: 12px; color: var(--t3); text-align: center; padding: 8px 0; }
+.kpi-badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 5px; margin-top: 2px; letter-spacing: .03em; }
+.kpi-badge.up   { background: var(--a-med); color: var(--accent); border: 1px solid rgba(0,255,136,.2); }
+.kpi-badge.down { background: rgba(255,68,68,.1); color: var(--red); border: 1px solid rgba(255,68,68,.2); }
+.kpi-badge.flat { background: var(--s2); color: var(--t2); border: 1px solid var(--b1); }
 .io-btns { display: flex; gap: 8px; padding: 16px 24px 0; }
 .io-btn  { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--b1); background: transparent; color: var(--t2); font-size: 12px; font-weight: 500; font-family: var(--f); cursor: pointer; transition: all .15s; text-align: center; }
 .io-btn:hover { border-color: var(--b2); color: var(--t1); }
@@ -444,9 +464,9 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
   <div class="sec-head"><div class="sec-title">Histórico</div></div>
   <div class="hist-stats">
     <div class="stat-block"><div class="stat-val" id="stMoCount">0</div><div class="stat-lbl">Treinos este mês</div></div>
-    <div class="stat-block"><div class="stat-val" id="stMoVol">0</div><div class="stat-lbl">Kg este mês</div></div>
-    <div class="stat-block"><div class="stat-val" id="stTotal">0</div><div class="stat-lbl">Total treinos</div></div>
-    <div class="stat-block"><div class="stat-val" id="stVol">0</div><div class="stat-lbl">Kg total</div></div>
+    <div class="stat-block"><div class="stat-val" id="stTotal">0</div><div class="stat-lbl">Total de treinos</div></div>
+    <div class="stat-block"><div class="stat-val" id="stConsist">0</div><div class="stat-lbl">Consistência</div></div>
+    <div class="stat-block"><div class="stat-val" id="stAvgDur">0</div><div class="stat-lbl" id="stAvgDurLbl">Tempo médio</div></div>
   </div>
   <div class="cal-wrap">
     <div class="cal-nav">
@@ -466,6 +486,15 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
   </div>
   <div class="cal-day-card" id="calDayCard" style="display:none"></div>
   <div class="streak-bar" id="streakBar"></div>
+
+  <div class="kpi-extra">
+    <div class="kpi-card" id="kpiPR"></div>
+    <div class="kpi-card" id="kpiMuscle"></div>
+    <div class="kpi-card" id="kpiTrend"></div>
+    <div class="kpi-card" id="kpiFreq"></div>
+    <div class="kpi-card" id="kpiWeight"></div>
+  </div>
+
   <div class="io-btns">
     <button class="io-btn" onclick="exportData()">&#8595; Exportar</button>
     <label class="io-btn" style="cursor:pointer">&#8593; Importar<input type="file" accept=".json" style="display:none" onchange="importData(event)"></label>
@@ -615,6 +644,32 @@ const DAYS = [
   ]},
 ];
 
+const MUSCLE_MAP = {
+  'Supino reto c/ barra':'Peito', 'Supino inclinado c/ halteres':'Peito',
+  'Desenvolvimento militar c/ barra':'Ombros', 'Elevação lateral c/ halteres':'Ombros',
+  'Tríceps corda (cabo)':'Braços', 'Tríceps francês (barra EZ)':'Braços',
+  'Levantamento terra':'Costas', 'Remada curvada c/ barra':'Costas',
+  'Puxada aberta':'Costas', 'Remada serrote c/ haltere':'Costas',
+  'Rosca direta c/ barra':'Braços', 'Rosca martelo c/ halteres':'Braços',
+  'Agachamento livre c/ barra':'Pernas', 'Leg press 45°':'Pernas',
+  'Cadeira extensora':'Pernas', 'Stiff c/ halteres':'Pernas',
+  'Cadeira flexora':'Pernas', 'Panturrilha em pé (máquina)':'Pernas',
+  'Supino inclinado c/ barra':'Peito', 'Crossover / Pec deck':'Peito',
+  'Pulldown triângulo':'Costas', 'Remada cavalinho (máquina)':'Costas',
+  'Desenvolvimento Arnold':'Ombros', 'Avanço c/ halteres':'Pernas',
+  'Desenvolvimento c/ halteres sentado':'Ombros', 'Elevação lateral inclinada (cabo)':'Ombros',
+  'Crucifixo c/ halteres (inclinado)':'Peito', 'Supino reto c/ halteres':'Peito',
+  'Tríceps mergulho':'Braços', 'Tríceps cabo (barra reta)':'Braços',
+};
+const MUSCLE_GROUP_BY_PART = {
+  peito:'Peito',
+  dorsais:'Costas', 'meio-das-costas':'Costas', 'inferior-das-costas':'Costas', trapezio:'Costas',
+  ombros:'Ombros',
+  quadriceps:'Pernas', isquiotibiais:'Pernas', panturrilhas:'Pernas', gluteos:'Pernas', adutores:'Pernas', abdutores:'Pernas',
+  biceps:'Braços', triceps:'Braços', antebracos:'Braços',
+  abdominais:'Core',
+};
+
 const MEALS = [
   { id:'pretreino', time:'05h45', name:'Pr\u00e9-treino',
     macros:{ prot:0, carb:25, fat:0, kcal:100 },
@@ -697,6 +752,107 @@ function fmtNum(n) {
 }
 function calcCalories(key,min) {
   return Math.round((DAYS.find(d=>d.key===key)?.met||5.0)*getWeight()*(min/60));
+}
+function volInRange(daysAgoStart,daysAgoEnd) {
+  var start=new Date(); start.setDate(start.getDate()-daysAgoStart); start.setHours(0,0,0,0);
+  var end=new Date();   end.setDate(end.getDate()-daysAgoEnd);       end.setHours(0,0,0,0);
+  return workouts.filter(function(w){var d=parseDate(w.date); return d>=start&&d<end;})
+    .reduce(function(a,w){return a+calcVol(w);},0);
+}
+
+// ── KPIs HISTÓRICO ────────────────────────────────────
+function getConsistency() {
+  var cutoff=new Date(); cutoff.setDate(cutoff.getDate()-28);
+  var cnt=workouts.filter(function(w){return parseDate(w.date)>=cutoff;}).length;
+  return cnt/4;
+}
+function getAvgDurAdherence() {
+  var withDur=workouts.filter(function(w){return w.duration;});
+  var avgMin=withDur.length?Math.round(withDur.reduce(function(a,w){return a+w.duration;},0)/withDur.length/60):0;
+  var doneSets=0,plannedSets=0;
+  workouts.forEach(function(w){
+    var day=DAYS.find(function(d){return d.key===w.dayKey;});
+    if(!day) return;
+    w.exercises.forEach(function(ex){doneSets+=ex.sets.length;});
+    plannedSets+=day.exercises.reduce(function(a,e){return a+e.sets;},0);
+  });
+  var adherence=plannedSets?Math.round(doneSets/plannedSets*100):0;
+  return {avgMin:avgMin,adherence:adherence};
+}
+function getMuscleGroup(name) {
+  if(MUSCLE_MAP[name]) return MUSCLE_MAP[name];
+  try{
+    var db=exDb||JSON.parse(localStorage.getItem('mb_exdb')||'null');
+    if(db){
+      var norm=normName(name);
+      var found=db.find(function(e){return normName(e.name)===norm;});
+      if(found&&found.primaryMuscles&&found.primaryMuscles.length){
+        return MUSCLE_GROUP_BY_PART[found.primaryMuscles[0]]||'Outros';
+      }
+    }
+  }catch(e){}
+  return 'Outros';
+}
+function getPRs() {
+  var sorted=workouts.slice().sort(function(a,b){return a.date.localeCompare(b.date);});
+  var best={},prEvents=[];
+  sorted.forEach(function(w){
+    w.exercises.forEach(function(ex){
+      var maxE1=0;
+      ex.sets.forEach(function(s){
+        var kg=parseFloat(s.kg||0),reps=parseInt(s.reps||0);
+        if(!kg||!reps) return;
+        var e1=kg*(1+reps/30);
+        if(e1>maxE1) maxE1=e1;
+      });
+      if(maxE1<=0) return;
+      if(!best[ex.name]||maxE1>best[ex.name]+0.01){
+        best[ex.name]=maxE1;
+        prEvents.push({name:ex.name,date:w.date,e1:maxE1});
+      }
+    });
+  });
+  return prEvents;
+}
+function getMuscleVolumes() {
+  var cutoff=new Date(); cutoff.setDate(cutoff.getDate()-7); cutoff.setHours(0,0,0,0);
+  var vols={};
+  workouts.forEach(function(w){
+    if(parseDate(w.date)<cutoff) return;
+    w.exercises.forEach(function(ex){
+      var g=getMuscleGroup(ex.name);
+      var v=ex.sets.reduce(function(s,set){return s+(parseFloat(set.kg||0)*parseInt(set.reps||0));},0);
+      vols[g]=(vols[g]||0)+v;
+    });
+  });
+  return vols;
+}
+function getVolumeTrend() {
+  var lastWeek=volInRange(7,0);
+  var avg4=0;
+  for(var i=1;i<=4;i++) avg4+=volInRange(7*(i+1),7*i);
+  avg4=avg4/4;
+  return {lastWeek:lastWeek,avg4:avg4};
+}
+function getFreqByType() {
+  var now2=new Date();
+  var moWks=workouts.filter(function(w){
+    var d=parseDate(w.date);
+    return d.getFullYear()===now2.getFullYear()&&d.getMonth()===now2.getMonth();
+  });
+  var counts={};
+  DAYS.forEach(function(d){counts[d.name]=0;});
+  moWks.forEach(function(w){counts[w.dayName]=(counts[w.dayName]||0)+1;});
+  return counts;
+}
+function getWeightVsVolume() {
+  var hist=JSON.parse(localStorage.getItem('mb_weight_history')||'[]').slice().sort(function(a,b){return a.date.localeCompare(b.date);});
+  var cutoff=new Date(); cutoff.setDate(cutoff.getDate()-30); cutoff.setHours(0,0,0,0);
+  var recent=hist.filter(function(h){return parseDate(h.date)>=cutoff;});
+  var weightChange=recent.length>=2?(recent[recent.length-1].kg-recent[0].kg):null;
+  var volRecent=volInRange(30,0),volPrev=volInRange(60,30);
+  var volChangePct=volPrev>0?((volRecent-volPrev)/volPrev*100):null;
+  return {weightChange:weightChange,volChangePct:volChangePct,currentWeight:getWeight()};
 }
 
 // ── STREAK ────────────────────────────────────────────
@@ -1291,11 +1447,15 @@ function renderHistory() {
     var d=parseDate(w.date);
     return d.getFullYear()===now2.getFullYear()&&d.getMonth()===now2.getMonth();
   });
-  var moVolStats=moWksStats.reduce(function(a,w){return a+calcVol(w);},0);
   document.getElementById('stMoCount').textContent=moWksStats.length;
-  document.getElementById('stMoVol').textContent  =fmtNum(moVolStats);
   document.getElementById('stTotal').textContent  =workouts.length;
-  document.getElementById('stVol').textContent    =fmtNum(totalVolAll());
+  document.getElementById('stConsist').textContent=getConsistency().toFixed(1)+'x';
+
+  var durAdh=getAvgDurAdherence();
+  document.getElementById('stAvgDur').textContent=durAdh.avgMin?durAdh.avgMin+'min':'--';
+  document.getElementById('stAvgDurLbl').textContent='Tempo médio · '+durAdh.adherence+'% adesão';
+
+  renderExtraKpis();
 
   var moName=new Date(calYear,calMonth,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
   document.getElementById('calLbl').textContent=moName.charAt(0).toUpperCase()+moName.slice(1);
@@ -1378,6 +1538,81 @@ function renderHistory() {
   listEl.innerHTML=html;
 
   if(selectedCalDate) showDayCard(selectedCalDate.y,selectedCalDate.m,selectedCalDate.d,true);
+}
+
+function renderExtraKpis() {
+  var now2=new Date();
+
+  // Progressão de carga (PR tracking)
+  var prEvents=getPRs();
+  var prThisMo=prEvents.filter(function(p){
+    var d=parseDate(p.date);
+    return d.getFullYear()===now2.getFullYear()&&d.getMonth()===now2.getMonth();
+  });
+  var recentPRs=prEvents.slice(-3).reverse();
+  var prHtml='<div class="kpi-title">Progressão de carga (PRs)</div>';
+  if(!prEvents.length){
+    prHtml+='<div class="kpi-empty">Sem dados suficientes ainda</div>';
+  } else {
+    prHtml+='<div class="kpi-big">'+prThisMo.length+'</div><div class="kpi-sub">PR'+(prThisMo.length===1?'':'s')+' este mês (recorde de carga)</div>';
+    recentPRs.forEach(function(p){
+      prHtml+='<div class="kpi-row"><span class="kpi-row-lbl">'+p.name+'</span><span class="kpi-row-val">~'+Math.round(p.e1)+'kg</span></div>';
+    });
+  }
+  document.getElementById('kpiPR').innerHTML=prHtml;
+
+  // Volume por grupo muscular
+  var vols=getMuscleVolumes();
+  var groups=Object.keys(vols);
+  var muscleHtml='<div class="kpi-title">Volume por grupo muscular (7 dias)</div>';
+  if(!groups.length){
+    muscleHtml+='<div class="kpi-empty">Sem treinos nos últimos 7 dias</div>';
+  } else {
+    var maxVol=Math.max.apply(null,groups.map(function(g){return vols[g];}));
+    groups.sort(function(a,b){return vols[b]-vols[a];}).forEach(function(g){
+      var pct=maxVol>0?(vols[g]/maxVol*100):0;
+      muscleHtml+='<div class="kpi-bar-wrap"><div class="kpi-bar-lbl"><span>'+g+'</span><span>'+fmtNum(vols[g])+' kg</span></div><div class="kpi-bar-track"><div class="kpi-bar-fill" style="width:'+pct+'%"></div></div></div>';
+    });
+  }
+  document.getElementById('kpiMuscle').innerHTML=muscleHtml;
+
+  // Tendência de volume/semana
+  var trend=getVolumeTrend();
+  var trendHtml='<div class="kpi-title">Tendência de volume semanal</div>';
+  if(trend.avg4<=0){
+    trendHtml+='<div class="kpi-empty">Sem dados suficientes ainda</div>';
+  } else {
+    var pct=Math.round((trend.lastWeek-trend.avg4)/trend.avg4*100);
+    var cls=pct>5?'up':(pct<-5?'down':'flat');
+    var arrow=pct>5?'↑':(pct<-5?'↓':'→');
+    var desc=pct>5?'aumentando':(pct<-5?'em queda (deload?)':'estável');
+    trendHtml+='<div class="kpi-big">'+fmtNum(trend.lastWeek)+' kg</div><div class="kpi-sub">últimos 7 dias vs média das últimas 4 semanas ('+fmtNum(trend.avg4)+' kg)</div>'
+      +'<div class="kpi-badge '+cls+'">'+arrow+' '+(pct>0?'+':'')+pct+'% — '+desc+'</div>';
+  }
+  document.getElementById('kpiTrend').innerHTML=trendHtml;
+
+  // Frequência por tipo de treino
+  var freq=getFreqByType();
+  var freqVals=Object.keys(freq).map(function(k){return freq[k];});
+  var freqMax=Math.max.apply(null,freqVals.concat([1]));
+  var freqHtml='<div class="kpi-title">Frequência por tipo de treino (mês)</div>';
+  Object.keys(freq).forEach(function(name){
+    var fpct=freqMax>0?(freq[name]/freqMax*100):0;
+    freqHtml+='<div class="kpi-bar-wrap"><div class="kpi-bar-lbl"><span>'+name+'</span><span>'+freq[name]+'x</span></div><div class="kpi-bar-track"><div class="kpi-bar-fill" style="width:'+fpct+'%"></div></div></div>';
+  });
+  document.getElementById('kpiFreq').innerHTML=freqHtml;
+
+  // Peso corporal vs volume de treino
+  var wv=getWeightVsVolume();
+  var weightHtml='<div class="kpi-title">Peso corporal vs volume de treino</div>';
+  weightHtml+='<div class="kpi-big">'+wv.currentWeight+' kg</div><div class="kpi-sub">peso atual';
+  if(wv.weightChange!==null) weightHtml+=' — '+(wv.weightChange>0?'+':'')+wv.weightChange.toFixed(1)+'kg nos últimos 30 dias';
+  weightHtml+='</div>';
+  if(wv.volChangePct!==null){
+    var vcls=wv.volChangePct>5?'up':(wv.volChangePct<-5?'down':'flat');
+    weightHtml+='<div class="kpi-badge '+vcls+'">volume '+(wv.volChangePct>0?'+':'')+Math.round(wv.volChangePct)+'% nos últimos 30 dias</div>';
+  }
+  document.getElementById('kpiWeight').innerHTML=weightHtml;
 }
 
 function showDayCard(y,m,d,silent) {
