@@ -1375,9 +1375,11 @@ function renderExercises() {
     var noteHtml=ex.note?'<div class="ex-note">'+ex.note+'</div>':'<div style="margin-bottom:12px"></div>';
     var setsHtml='';
     for(var j=0;j<ex.sets;j++) setsHtml+=renderSetRow(i,j,ex.repsRange);
-    html+='<div class="ex-card">'
-      +'<div class="ex-hdr"><div class="ex-name">'+ex.name+'</div><span class="ex-badge '+ex.type+'">'+ex.type+'</span>'
-      +'<button onclick="deleteExerciseFromDay('+i+')" style="margin-left:auto;background:none;border:none;color:var(--t2);font-size:16px;cursor:pointer;padding:0 4px" title="Remover">🗑</button>'
+    html+='<div class="ex-card" data-ex-idx="'+i+'" id="ex-card-'+i+'">'
+      +'<div class="ex-hdr">'
+      +'<span class="drag-handle" ontouchstart="exDragStart(event,'+i+')" ontouchmove="exDragMove(event)" ontouchend="exDragEnd(event)" onmousedown="exDragStart(event,'+i+')" style="cursor:grab;color:var(--t2);font-size:18px;padding:0 8px 0 0;user-select:none;touch-action:none">⠿</span>'
+      +'<div class="ex-name">'+ex.name+'</div><span class="ex-badge '+ex.type+'">'+ex.type+'</span>'
+      +'<button onclick="deleteExerciseFromDay('+i+')" style="margin-left:auto;background:none;border:none;color:var(--t2);font-size:16px;font-weight:700;cursor:pointer;padding:0 6px;line-height:1" title="Remover">×</button>'
       +'</div>'
       +noteHtml
       +'<div class="set-lbls"><div></div><div class="set-lbl">KG</div><div class="set-lbl">Reps</div><div></div></div>'
@@ -1413,6 +1415,91 @@ function deleteExerciseFromDay(i) {
   renderExercises();
   scheduleSync();
 }
+// ── DRAG TO REORDER EXERCISES ─────────────────────────
+var _exDrag={idx:-1,startY:0,currentY:0,ghost:null,placeholder:null};
+function exDragStart(e,i) {
+  e.stopPropagation();
+  _exDrag.idx=i;
+  _exDrag.startY=e.touches?e.touches[0].clientY:e.clientY;
+  _exDrag.currentY=_exDrag.startY;
+  var card=document.getElementById('ex-card-'+i);
+  if(!card) return;
+  var rect=card.getBoundingClientRect();
+  // ghost
+  var ghost=card.cloneNode(true);
+  ghost.style.cssText='position:fixed;left:'+rect.left+'px;top:'+rect.top+'px;width:'+rect.width+'px;opacity:0.7;pointer-events:none;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.5);transition:none';
+  document.body.appendChild(ghost);
+  _exDrag.ghost=ghost;
+  _exDrag.ghostTop=rect.top;
+  // placeholder
+  var ph=document.createElement('div');
+  ph.style.cssText='height:'+rect.height+'px;border:2px dashed var(--accent);border-radius:14px;margin-bottom:8px;box-sizing:border-box';
+  card.parentNode.insertBefore(ph,card);
+  card.style.display='none';
+  _exDrag.placeholder=ph;
+  _exDrag.origCard=card;
+  if(e.preventDefault) e.preventDefault();
+}
+function exDragMove(e) {
+  if(_exDrag.idx<0||!_exDrag.ghost) return;
+  var cy=e.touches?e.touches[0].clientY:e.clientY;
+  var dy=cy-_exDrag.startY;
+  _exDrag.ghost.style.top=(_exDrag.ghostTop+dy)+'px';
+  _exDrag.currentY=cy;
+  // find target position by comparing mid of placeholder with other cards
+  var container=document.getElementById('exContainer');
+  var cards=Array.from(container.querySelectorAll('.ex-card[data-ex-idx]'));
+  var ph=_exDrag.placeholder;
+  for(var k=0;k<cards.length;k++){
+    var r=cards[k].getBoundingClientRect();
+    if(cy<r.top+r.height/2){
+      container.insertBefore(ph,cards[k]);
+      if(e.preventDefault) e.preventDefault();
+      return;
+    }
+  }
+  // after last
+  var addBtn=container.querySelector('button.add-set');
+  container.insertBefore(ph,addBtn||null);
+  if(e.preventDefault) e.preventDefault();
+}
+function exDragEnd(e) {
+  if(_exDrag.idx<0) return;
+  // determine new index from placeholder position among cards
+  var container=document.getElementById('exContainer');
+  var ph=_exDrag.placeholder;
+  var cards=Array.from(container.querySelectorAll('.ex-card[data-ex-idx]'));
+  var newIdx=cards.length; // default: last
+  for(var k=0;k<cards.length;k++){
+    if(ph.nextSibling===cards[k]){newIdx=k;break;}
+    if(ph===cards[k].previousSibling){newIdx=k;break;}
+  }
+  // check if placeholder is before any card
+  var allNodes=Array.from(container.childNodes);
+  var phPos=allNodes.indexOf(ph);
+  newIdx=0;
+  for(var k=0;k<cards.length;k++){
+    if(allNodes.indexOf(cards[k])<phPos) newIdx=k+1;
+  }
+  // reorder in data
+  var oldIdx=_exDrag.idx;
+  if(oldIdx!==newIdx&&newIdx<=selectedDay.exercises.length){
+    var ex=selectedDay.exercises.splice(oldIdx,1)[0];
+    var insertAt=newIdx>oldIdx?newIdx-1:newIdx;
+    selectedDay.exercises.splice(insertAt,0,ex);
+    scheduleSync();
+  }
+  // cleanup
+  if(_exDrag.ghost) _exDrag.ghost.remove();
+  if(_exDrag.origCard) _exDrag.origCard.style.display='';
+  if(ph&&ph.parentNode) ph.parentNode.removeChild(ph);
+  _exDrag={idx:-1,startY:0,currentY:0,ghost:null,placeholder:null};
+  renderExercises();
+}
+// mouse drag support
+document.addEventListener('mousemove',function(e){ if(_exDrag.idx>=0) exDragMove(e); });
+document.addEventListener('mouseup',function(e){ if(_exDrag.idx>=0) exDragEnd(e); });
+
 function openAddExercisePanel() {
   var panel=document.getElementById('addExPanel');
   if(!panel) return;
