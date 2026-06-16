@@ -6,3 +6,9 @@ tela de início.png
 
 # Sessões de brainstorming (mockups temporários)
 .superpowers/
+
+# Chave de serviço Firebase (NUNCA commitar)
+serviceAccountKey.json
+
+# Plano gerado pelo Claude (temporário, publicado via publish-plan.js)
+plan.json

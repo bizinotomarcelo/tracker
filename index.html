@@ -690,7 +690,7 @@ body { background: var(--bg); color: var(--t1); font-family: var(--f); font-size
 
 <script>
 // ── DATA ──────────────────────────────────────────────
-const DAYS = [
+const DAYS_DEFAULT = [
   { key:'push1', name:'Push', met:5.0, exercises:[
     { name:'Supino reto c/ barra',             type:'composto', sets:4, repsRange:'6-8',   note:'Composto principal \u2014 carga alta' },
     { name:'Supino inclinado c/ halteres',     type:'composto', sets:3, repsRange:'10-12', note:'\u00cAnfase feixe clavicular' },
@@ -732,6 +732,7 @@ const DAYS = [
     { name:'Tr\u00edceps cabo (barra reta)',        type:'isolador', sets:3, repsRange:'12-15', note:'' },
   ]},
 ];
+let DAYS = [];
 
 const MUSCLE_MAP = {
   'Supino reto c/ barra':'Peito', 'Supino inclinado c/ halteres':'Peito',
@@ -820,7 +821,7 @@ let authMode    = 'login'; // 'login' | 'signup'
 
 // ── STATE ─────────────────────────────────────────────
 let workouts    = JSON.parse(localStorage.getItem('mb_workouts') || '[]');
-let selectedDay = DAYS[0];
+let selectedDay = null;
 let chartInst   = null;
 let exoChartInst = null;
 let wtChartInst  = null;
@@ -895,6 +896,14 @@ function doLogout() {
   Object.keys(localStorage).filter(function(k){return k.indexOf('mb_nutr_')===0;}).forEach(function(k){localStorage.removeItem(k);});
   auth.signOut().then(function(){ location.reload(); });
 }
+function applyPlan(plan) {
+  if(plan && plan.length) {
+    DAYS = plan;
+  } else {
+    DAYS = [];
+  }
+  selectedDay = DAYS.length ? DAYS[0] : null;
+}
 function loadFromCloud(uid) {
   db.collection('users').doc(uid).get().then(function(doc){
     if(doc.exists){
@@ -907,13 +916,16 @@ function loadFromCloud(uid) {
         localStorage.setItem('mb_nutr_'+iso,JSON.stringify(data.nutrition[iso]));
       });
       workouts=JSON.parse(localStorage.getItem('mb_workouts')||'[]');
+      applyPlan(data.plan||[]);
       startApp();
     } else {
+      applyPlan([]);
       saveToCloud();
       startApp();
     }
   }).catch(function(err){
     console.error('Erro ao carregar dados da nuvem',err);
+    applyPlan([]);
     startApp();
   });
 }
@@ -929,6 +941,7 @@ function saveToCloud() {
     weightHistory: JSON.parse(localStorage.getItem('mb_weight_history')||'[]'),
     dayOverrides:  JSON.parse(localStorage.getItem('mb_day_overrides')||'{}'),
     nutrition:     nutrition,
+    plan:          DAYS,
     updatedAt:     firebase.firestore.FieldValue.serverTimestamp(),
   };
   db.collection('users').doc(currentUser.uid).set(data).catch(function(err){
@@ -1246,16 +1259,37 @@ function saveSettings() {
 
 // ── TYPE CHIPS (SEGMENT) ──────────────────────────────
 function renderTypeChips() {
-  document.getElementById('typeScroll').innerHTML=DAYS.map(d=>
-    '<button class="seg-btn '+(d.key===selectedDay.key?'active':'')+'" onclick="selectType(\''+d.key+'\')">'+d.name+'</button>'
-  ).join('');
+  var chips=DAYS.map(function(d){
+    var active=selectedDay&&d.key===selectedDay.key?'active':'';
+    return '<button class="seg-btn '+active+'" onclick="selectType(\''+d.key+'\')" onlongclick="deleteWorkoutDay(\''+d.key+'\')">'+d.name+'</button>';
+  }).join('');
+  chips+='<button class="seg-btn" style="min-width:36px;flex:0 0 auto" onclick="promptAddWorkoutDay()" title="Novo treino">＋</button>';
+  document.getElementById('typeScroll').innerHTML=chips;
 }
 function selectType(key) {
-  typeData[selectedDay.key]=captureSets(selectedDay);
-  selectedDay=DAYS.find(d=>d.key===key);
+  if(selectedDay) typeData[selectedDay.key]=captureSets(selectedDay);
+  selectedDay=DAYS.find(function(d){return d.key===key;})||null;
   renderTypeChips();
   renderExercises();
-  applySets(selectedDay,typeData[selectedDay.key]);
+  if(selectedDay) applySets(selectedDay,typeData[selectedDay.key]);
+}
+function promptAddWorkoutDay() {
+  var name=(prompt('Nome do treino (ex: Peito, Pull, Pernas):')||'').trim();
+  if(!name) return;
+  var key=name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_')+'_'+Date.now();
+  DAYS.push({key:key,name:name,met:5.0,exercises:[]});
+  selectedDay=DAYS[DAYS.length-1];
+  renderTypeChips();
+  renderExercises();
+  scheduleSync();
+}
+function deleteWorkoutDay(key) {
+  if(!confirm('Excluir o treino "'+( DAYS.find(function(d){return d.key===key;})||{name:key}).name+'"?')) return;
+  DAYS=DAYS.filter(function(d){return d.key!==key;});
+  selectedDay=DAYS.length?DAYS[0]:null;
+  renderTypeChips();
+  renderExercises();
+  scheduleSync();
 }
 
 // ── Captura/restauração de séries em andamento por tipo de treino ─
@@ -1323,6 +1357,15 @@ function getEffectiveExercise(day,i) {
 }
 
 function renderExercises() {
+  var container=document.getElementById('exContainer');
+  if(!selectedDay) {
+    container.innerHTML='<div style="text-align:center;padding:60px 20px">'
+      +'<div style="font-size:40px;margin-bottom:16px">💪</div>'
+      +'<div style="font-size:18px;font-weight:700;color:var(--t1);margin-bottom:8px">Nenhum treino ainda</div>'
+      +'<div style="font-size:13px;color:var(--t2);margin-bottom:24px">Crie um treino clicando em ＋</div>'
+      +'</div>';
+    return;
+  }
   var html='';
   var ov=getOverrides();
   var dayOv=ov[selectedDay.key]||{};
@@ -1337,7 +1380,9 @@ function renderExercises() {
     var setsHtml='';
     for(var j=0;j<ex.sets;j++) setsHtml+=renderSetRow(i,j,ex.repsRange);
     html+='<div class="ex-card">'
-      +'<div class="ex-hdr"><div class="ex-name">'+ex.name+'</div><span class="ex-badge '+ex.type+'">'+ex.type+'</span></div>'
+      +'<div class="ex-hdr"><div class="ex-name">'+ex.name+'</div><span class="ex-badge '+ex.type+'">'+ex.type+'</span>'
+      +'<button onclick="deleteExerciseFromDay('+i+')" style="margin-left:auto;background:none;border:none;color:var(--t2);font-size:16px;cursor:pointer;padding:0 4px" title="Remover">🗑</button>'
+      +'</div>'
       +noteHtml
       +'<div class="set-lbls"><div></div><div class="set-lbl">KG</div><div class="set-lbl">Reps</div><div></div></div>'
       +'<div class="sets-tbl" id="sets-'+i+'">'+setsHtml+'</div>'
@@ -1350,7 +1395,60 @@ function renderExercises() {
       +lastHtml
       +'</div>';
   });
-  document.getElementById('exContainer').innerHTML=html;
+  html+='<button class="add-set" style="width:100%;margin-top:4px;margin-bottom:8px;font-size:13px" onclick="openAddExercisePanel()">＋ Exercício</button>'
+    +'<div id="addExPanel" style="display:none"></div>';
+  container.innerHTML=html;
+}
+function deleteExerciseFromDay(i) {
+  if(!selectedDay) return;
+  if(!confirm('Remover "'+selectedDay.exercises[i].name+'" do treino?')) return;
+  selectedDay.exercises.splice(i,1);
+  var ov=getOverrides();
+  if(ov[selectedDay.key]){
+    var newOv={};
+    Object.keys(ov[selectedDay.key]).forEach(function(k){
+      var ki=parseInt(k);
+      if(ki<i) newOv[ki]=ov[selectedDay.key][k];
+      else if(ki>i) newOv[ki-1]=ov[selectedDay.key][k];
+    });
+    ov[selectedDay.key]=newOv;
+    saveOverrides(ov);
+  }
+  renderExercises();
+  scheduleSync();
+}
+function openAddExercisePanel() {
+  var panel=document.getElementById('addExPanel');
+  if(!panel) return;
+  if(panel.style.display==='block'){panel.style.display='none';panel.innerHTML='';return;}
+  panel.style.display='block';
+  panel.innerHTML='<div class="swap-loading">Carregando catálogo...</div>';
+  loadExDb(function(){
+    panel.innerHTML='<input class="swap-search" placeholder="Buscar exercício para adicionar..." oninput="renderAddExResults(this.value)">'
+      +'<div id="addExResults"></div>';
+    renderAddExResults('');
+  });
+}
+function renderAddExResults(q) {
+  var container=document.getElementById('addExResults');
+  if(!container||!exDb) return;
+  var norm=normName(q);
+  var results=(norm?exDb.filter(function(d){return normName(d.name).includes(norm);}):exDb).slice(0,20);
+  container.innerHTML=results.map(function(d){
+    var name=d.name.replace(/'/g,"\\'");
+    var type=d.mechanic==='isolamento'||d.mechanic==='isolation'?'isolador':'composto';
+    return '<div class="swap-result"><div class="swap-result-info"><div class="swap-result-name">'+d.name+'</div>'
+      +'<div class="swap-result-meta">'+(d.primaryMuscles||[]).join(', ')+(d.equipment?' · '+d.equipment:'')+'</div></div>'
+      +'<button class="swap-use" onclick="addExerciseToDay(\''+name+'\',\''+type+'\')">Adicionar</button></div>';
+  }).join('');
+}
+function addExerciseToDay(name, type) {
+  if(!selectedDay) return;
+  selectedDay.exercises.push({name:name,type:type,sets:3,repsRange:'8-12',note:''});
+  document.getElementById('addExPanel').style.display='none';
+  document.getElementById('addExPanel').innerHTML='';
+  renderExercises();
+  scheduleSync();
 }
 
 // ── TROCAR EXERCÍCIO (catálogo PT-BR) ─────────────────
@@ -1509,6 +1607,7 @@ function reIdx(ei) {
 
 // ── SAVE ──────────────────────────────────────────────
 function saveWorkout(auto) {
+  if(!selectedDay){ if(!auto) showToast('Crie um treino primeiro.',false); return; }
   typeData[selectedDay.key]=captureSets(selectedDay);
   var exercises=[];
   var usedNames=[];
@@ -2189,6 +2288,7 @@ function renderWeightChart() {
 
 // ── DRAFT SAVE / RESTORE ──────────────────────────────
 function saveDraft() {
+  if(!selectedDay) return;
   typeData[selectedDay.key]=captureSets(selectedDay);
   localStorage.setItem('mb_draft',JSON.stringify({currentDayKey:selectedDay.key,timestamp:Date.now(),lastSetTime:lastSetTime,typeData:typeData}));
 }
@@ -2214,10 +2314,10 @@ function resumeDraft() {
   document.getElementById('resumeModal').style.display='none';
   if(!draft) return;
   typeData=draft.typeData||{};
-  selectedDay=DAYS.find(function(d){return d.key===draft.currentDayKey;})||selectedDay;
+  selectedDay=DAYS.find(function(d){return d.key===draft.currentDayKey;})||selectedDay||DAYS[0]||null;
   renderTypeChips();
   renderExercises();
-  applySets(selectedDay,typeData[selectedDay.key]);
+  if(selectedDay) applySets(selectedDay,typeData[selectedDay.key]);
   showTimerBar();
   lastSetTime=draft.lastSetTime||draft.timestamp;
   localStorage.removeItem('mb_draft');
