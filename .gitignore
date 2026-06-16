@@ -12,3 +12,6 @@ serviceAccountKey.json
 
 # Plano gerado pelo Claude (temporário, publicado via publish-plan.js)
 plan.json
+node_modules/
+package-lock.json
+package.json

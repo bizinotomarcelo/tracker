@@ -1257,7 +1257,10 @@ function saveSettings() {
 function renderTypeChips() {
   var chips=DAYS.map(function(d){
     var active=selectedDay&&d.key===selectedDay.key?'active':'';
-    return '<button class="seg-btn '+active+'" onclick="selectType(\''+d.key+'\')" onlongclick="deleteWorkoutDay(\''+d.key+'\')">'+d.name+'</button>';
+    return '<span style="display:inline-flex;align-items:center;gap:2px;flex-shrink:0">'
+      +'<button class="seg-btn '+active+'" style="flex:none" onclick="selectType(\''+d.key+'\')">'+d.name+'</button>'
+      +'<button onclick="deleteWorkoutDay(\''+d.key+'\')" style="background:none;border:none;color:var(--t2);font-size:15px;font-weight:700;cursor:pointer;padding:0 2px;line-height:1" title="Excluir treino">×</button>'
+      +'</span>';
   }).join('');
   chips+='<button class="seg-btn" style="min-width:36px;flex:0 0 auto" onclick="promptAddWorkoutDay()" title="Novo treino">＋</button>';
   document.getElementById('typeScroll').innerHTML=chips;
