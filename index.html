@@ -897,11 +897,7 @@ function doLogout() {
   auth.signOut().then(function(){ location.reload(); });
 }
 function applyPlan(plan) {
-  if(plan && plan.length) {
-    DAYS = plan;
-  } else {
-    DAYS = [];
-  }
+  DAYS = (plan && plan.length) ? plan : DAYS_DEFAULT.slice();
   selectedDay = DAYS.length ? DAYS[0] : null;
 }
 function loadFromCloud(uid) {
